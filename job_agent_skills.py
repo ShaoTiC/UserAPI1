@@ -241,7 +241,7 @@ class JobFilterSkill:
         if job.min_days_per_week is None:
             return 0, "", ""
         if job.min_days_per_week <= self.profile.min_days_per_week:
-            return 5, f"出勤要求可满足：每周 {job.min_days_per_week} 天"
+            return 5, f"出勤要求可满足：每周 {job.min_days_per_week} 天", ""
         return -8, "", f"出勤要求偏高：每周 {job.min_days_per_week} 天"
 
 
