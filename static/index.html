@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>端午高铁抢票 Skill</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --muted: #64748b;
+        --border: #dbe3ef;
+        --surface: #ffffff;
+        --background: #f4f7fb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 36rem),
+          var(--background);
+        color: #0f172a;
+      }
+
+      .page {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 24px;
+        align-items: stretch;
+        margin-bottom: 24px;
+      }
+
+      .hero-card,
+      .panel {
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(219, 227, 239, 0.9);
+        border-radius: 24px;
+        box-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+      }
+
+      .hero-card {
+        padding: 32px;
+      }
+
+      .hero-card h1 {
+        margin: 0 0 12px;
+        font-size: clamp(30px, 4vw, 48px);
+      }
+
+      .hero-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      .notice {
+        padding: 24px;
+      }
+
+      .notice strong {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--primary-dark);
+      }
+
+      .notice span {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 24px;
+      }
+
+      .panel {
+        padding: 24px;
+      }
+
+      .panel h2 {
+        margin: 0 0 18px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: #334155;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      input,
+      select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: var(--surface);
+        color: #0f172a;
+        font: inherit;
+        outline: none;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      .seat-options {
+        display: grid;
+        gap: 10px;
+      }
+
+      .seat-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #f8fafc;
+        font-weight: 500;
+      }
+
+      .seat-option input {
+        width: auto;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 22px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 20px;
+        background: var(--primary);
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+
+      button:hover {
+        background: var(--primary-dark);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+
+      .secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+
+      .secondary:hover {
+        background: #cbd5e1;
+      }
+
+      .hint,
+      .empty {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .train-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .train-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 16px;
+        background: #f8fafc;
+      }
+
+      .train-card strong {
+        font-size: 20px;
+      }
+
+      .train-meta,
+      .seats,
+      .result-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .train-meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: 12px 0;
+        color: #334155;
+      }
+
+      .seats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .pill {
+        display: inline-flex;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #e0ecff;
+        color: #1d4ed8;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .result {
+        border-radius: 22px;
+        padding: 22px;
+        border: 1px solid var(--border);
+      }
+
+      .result.success {
+        border-color: rgba(22, 163, 74, 0.3);
+        background: #f0fdf4;
+      }
+
+      .result.failed {
+        border-color: rgba(220, 38, 38, 0.28);
+        background: #fef2f2;
+      }
+
+      .result h3 {
+        margin: 0 0 16px;
+        color: #0f172a;
+      }
+
+      .result-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field {
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .field span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 5px;
+      }
+
+      .field strong {
+        word-break: break-word;
+      }
+
+      .error-list {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: #991b1b;
+      }
+
+      @media (max-width: 920px) {
+        .hero,
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .form-grid,
+        .train-meta,
+        .seats,
+        .result-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="page">
+      <section class="hero">
+        <div class="hero-card">
+          <h1>端午高铁抢票 Skill</h1>
+          <p>
+            选择出发地、目的地、车次和席别后发起抢票。成功时返回购买人、乘车时间、起止站、
+            检票口、座位号和车次；失败时返回失败原因和当前余票参考。
+          </p>
+        </div>
+        <div class="notice">
+          <strong>安全说明</strong>
+          <span>
+            这是本地演示技能，不会登录真实 12306、不会绕过验证码或发起支付。
+            接入真实业务时应使用官方允许的渠道与用户授权流程。
+          </span>
+        </div>
+      </section>
+
+      <main class="layout">
+        <section class="panel">
+          <h2>抢票信息</h2>
+          <form @submit.prevent="submit">
+            <div class="form-grid">
+              <label>
+                购买人
+                <input v-model.trim="form.passenger.name" placeholder="例如：张三" />
+              </label>
+              <label>
+                手机号（可选）
+                <input v-model.trim="form.passenger.phone" placeholder="用于展示脱敏信息" />
+              </label>
+              <label>
+                身份证号（可选）
+                <input v-model.trim="form.passenger.id_number" placeholder="用于展示脱敏信息" />
+              </label>
+              <label>
+                乘车日期
+                <input type="date" v-model="form.travel_date" @change="loadTrains" />
+              </label>
+              <label>
+                起始地
+                <select v-model="form.origin" @change="loadTrains">
+                  <option value="">请选择</option>
+                  <option v-for="station in stations" :key="station" :value="station">
+                    {{ station }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                终止地
+                <select v-model="form.destination" @change="loadTrains">
+                  <option value="">请选择</option>
+                  <option v-for="station in stations" :key="station" :value="station">
+                    {{ station }}
+                  </option>
+                </select>
+              </label>
+              <label class="full">
+                车次
+                <select v-model="form.train_number">
+                  <option value="">自动选择有票车次</option>
+                  <option v-for="train in trains" :key="train.train_number" :value="train.train_number">
+                    {{ train.train_number }}：{{ train.departure_time }} {{ train.origin }} -> {{ train.destination }}
+                  </option>
+                </select>
+              </label>
+              <div class="full">
+                <label>席别（按勾选顺序提交）</label>
+                <div class="seat-options">
+                  <label class="seat-option" v-for="seat in seatTypes" :key="seat.value">
+                    <span>{{ seat.label }}</span>
+                    <input type="checkbox" :value="seat.value" v-model="form.seat_types" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button :disabled="loading">{{ loading ? "抢票中..." : "开始抢票" }}</button>
+              <button class="secondary" type="button" @click="resetResult">清空结果</button>
+            </div>
+            <p class="hint">默认最多尝试 5 次；如果不指定车次，会从当前路线的可选车次中寻找有票席别。</p>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>可选车次</h2>
+          <p class="empty" v-if="!form.origin || !form.destination">
+            请先选择起始地和终止地。
+          </p>
+          <p class="empty" v-else-if="trains.length === 0">
+            当前路线暂无可选车次。
+          </p>
+          <div v-else class="train-list">
+            <article class="train-card" v-for="train in trains" :key="train.train_number">
+              <strong>{{ train.train_number }}</strong>
+              <div class="train-meta">
+                <span>{{ train.origin }} -> {{ train.destination }}</span>
+                <span>检票口：{{ train.gate }}</span>
+                <span>发车：{{ train.departure_time }}</span>
+                <span>到达：{{ train.arrival_time }}</span>
+              </div>
+              <div class="seats">
+                <span class="pill">一等座 {{ train.seat_inventory.first_class }} 张</span>
+                <span class="pill">二等座 {{ train.seat_inventory.second_class }} 张</span>
+                <span class="pill">无座 {{ train.seat_inventory.standing }} 张</span>
+              </div>
+            </article>
+          </div>
+
+          <section v-if="result" class="result" :class="result.success ? 'success' : 'failed'" style="margin-top: 20px">
+            <h3>{{ result.success ? "购买成功页面" : "购买失败结果" }}</h3>
+
+            <div v-if="result.success && result.order" class="result-grid">
+              <div class="field"><span>订单号</span><strong>{{ result.order.order_id }}</strong></div>
+              <div class="field"><span>购买人</span><strong>{{ result.order.buyer }}</strong></div>
+              <div class="field"><span>乘车时间</span><strong>{{ result.order.departure_time }}</strong></div>
+              <div class="field"><span>起始地</span><strong>{{ result.order.origin }}</strong></div>
+              <div class="field"><span>终止地</span><strong>{{ result.order.destination }}</strong></div>
+              <div class="field"><span>检票口</span><strong>{{ result.order.gate }}</strong></div>
+              <div class="field"><span>座位号</span><strong>{{ result.order.seat_number }}</strong></div>
+              <div class="field"><span>车次</span><strong>{{ result.order.train_number }}</strong></div>
+              <div class="field"><span>席别</span><strong>{{ result.order.seat_type_label }}</strong></div>
+              <div class="field"><span>尝试次数</span><strong>{{ result.attempts }}</strong></div>
+              <div class="field full"><span>说明</span><strong>{{ result.order.payment_notice }}</strong></div>
+            </div>
+
+            <div v-else>
+              <p><strong>{{ result.message }}</strong></p>
+              <p v-if="result.failure">失败原因：{{ result.failure.reason }}</p>
+              <ul class="error-list" v-if="result.failure && result.failure.details">
+                <li v-for="detail in result.failure.details" :key="detail">{{ detail }}</li>
+              </ul>
+              <p class="hint">可调整地点、车次或席别后再次尝试。</p>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            stations: [],
+            trains: [],
+            seatTypes: [
+              { value: "first_class", label: "一等座" },
+              { value: "second_class", label: "二等座" },
+              { value: "standing", label: "无座" },
+            ],
+            loading: false,
+            result: null,
+            form: {
+              passenger: {
+                name: "",
+                id_number: "",
+                phone: "",
+              },
+              travel_date: "2026-06-19",
+              origin: "",
+              destination: "",
+              train_number: "",
+              seat_types: ["second_class", "first_class", "standing"],
+            },
+          };
+        },
+        async mounted() {
+          const response = await fetch("/api/stations");
+          const data = await response.json();
+          this.stations = data.stations || [];
+          this.seatTypes = data.seat_types || this.seatTypes;
+        },
+        methods: {
+          async loadTrains() {
+            this.form.train_number = "";
+            this.trains = [];
+            if (!this.form.origin || !this.form.destination || !this.form.travel_date) {
+              return;
+            }
+            const params = new URLSearchParams({
+              origin: this.form.origin,
+              destination: this.form.destination,
+              travel_date: this.form.travel_date,
+            });
+            const response = await fetch(`/api/trains?${params.toString()}`);
+            const data = await response.json();
+            this.trains = data.trains || [];
+          },
+          async submit() {
+            this.loading = true;
+            this.result = null;
+            try {
+              const response = await fetch("/api/grab-ticket", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...this.form,
+                  max_attempts: 5,
+                }),
+              });
+              this.result = await response.json();
+              await this.loadTrains();
+            } finally {
+              this.loading = false;
+            }
+          },
+          resetResult() {
+            this.result = null;
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
