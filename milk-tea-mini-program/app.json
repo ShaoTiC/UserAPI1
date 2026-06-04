@@ -1,0 +1,16 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/order/order",
+    "pages/cart/cart",
+    "pages/success/success"
+  ],
+  "window": {
+    "navigationBarTitleText": "Milk Tea Skill",
+    "navigationBarBackgroundColor": "#7a4a2a",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#fff7ec"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

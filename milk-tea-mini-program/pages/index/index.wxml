@@ -1,0 +1,49 @@
+<view class="page home-page">
+  <view class="hero card">
+    <view class="eyebrow">Mini-program ordering skill</view>
+    <view class="title">Order milk tea in one sentence</view>
+    <view class="subtitle">Type what you want, review the detected options, and add it to your cart.</view>
+  </view>
+
+  <view class="card smart-card">
+    <view class="section-title">Smart order</view>
+    <input
+      class="smart-input"
+      value="{{smartText}}"
+      bindinput="onInput"
+      placeholder="Example: large jasmine milk tea 30% sugar less ice boba"
+    />
+    <button class="primary-button" bindtap="parseSmartOrder">Parse and customize</button>
+    <view wx:if="{{parsedPreview}}" class="preview muted">
+      Detected {{parsedPreview.productName}} with confidence {{parsedPreview.confidence}}.
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Recommended presets</view>
+    <view wx:for="{{presets}}" wx:key="id" class="preset-row" bindtap="startPreset" data-id="{{item.id}}">
+      <view>
+        <view class="preset-name">{{item.name}}</view>
+        <view class="muted">{{item.description}}</view>
+      </view>
+      <view class="preset-action">Use</view>
+    </view>
+  </view>
+
+  <view class="section-title menu-title">Menu</view>
+  <view wx:for="{{products}}" wx:key="id" class="product-card card">
+    <view class="product-main">
+      <view>
+        <view class="product-name">{{item.name}}</view>
+        <view class="muted">{{item.description}}</view>
+      </view>
+      <view class="price">CNY {{item.basePrice}}</view>
+    </view>
+    <view class="tag-row">
+      <text wx:for="{{item.tags}}" wx:key="*this" class="tag">{{item}}</text>
+    </view>
+    <button class="secondary-button" bindtap="startProductOrder" data-id="{{item.id}}">Customize</button>
+  </view>
+
+  <button class="cart-fab primary-button" bindtap="openCart">View cart</button>
+</view>
