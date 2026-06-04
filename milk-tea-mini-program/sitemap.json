@@ -1,0 +1,9 @@
+{
+  "desc": "Sitemap for milk tea ordering skill demo",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

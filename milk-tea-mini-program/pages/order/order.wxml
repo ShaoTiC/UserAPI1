@@ -1,0 +1,114 @@
+<view class="page order-page" wx:if="{{calculation}}">
+  <view class="card drink-card">
+    <view class="source-label">{{source === 'skill' ? 'Smart skill result' : 'Customize your drink'}}</view>
+    <view class="drink-name">{{calculation.product.name}}</view>
+    <view class="muted">{{calculation.product.description}}</view>
+    <view class="summary-price">CNY {{calculation.lineTotalText}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Size</view>
+    <view class="option-grid">
+      <view
+        wx:for="{{sizes}}"
+        wx:key="id"
+        class="option {{order.size === item.id ? 'selected' : ''}}"
+        data-field="size"
+        data-value="{{item.id}}"
+        bindtap="chooseOption"
+      >
+        <view>{{item.name}}</view>
+        <view class="muted">{{item.priceDelta >= 0 ? '+' : ''}}{{item.priceDelta}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Sweetness</view>
+    <view class="option-grid">
+      <view
+        wx:for="{{sweetnessLevels}}"
+        wx:key="id"
+        class="option {{order.sweetness === item.id ? 'selected' : ''}}"
+        data-field="sweetness"
+        data-value="{{item.id}}"
+        bindtap="chooseOption"
+      >
+        {{item.name}}
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Ice</view>
+    <view class="option-grid">
+      <view
+        wx:for="{{iceLevels}}"
+        wx:key="id"
+        class="option {{order.ice === item.id ? 'selected' : ''}}"
+        data-field="ice"
+        data-value="{{item.id}}"
+        bindtap="chooseOption"
+      >
+        {{item.name}}
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Temperature</view>
+    <view class="option-grid two-columns">
+      <view
+        wx:for="{{temperatures}}"
+        wx:key="id"
+        class="option {{order.temperature === item.id ? 'selected' : ''}}"
+        data-field="temperature"
+        data-value="{{item.id}}"
+        bindtap="chooseOption"
+      >
+        {{item.name}}
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Toppings</view>
+    <view class="option-grid">
+      <view
+        wx:for="{{toppingsView}}"
+        wx:key="id"
+        class="option topping {{item.selected ? 'selected' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="toggleTopping"
+      >
+        <view>{{item.name}}</view>
+        <view class="muted">+CNY {{item.price}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card quantity-card">
+    <view>
+      <view class="section-title">Quantity</view>
+      <view class="muted">Unit price: CNY {{calculation.unitPriceText}}</view>
+    </view>
+    <view class="quantity-control">
+      <button class="quantity-button" data-delta="-1" bindtap="changeQuantity">-</button>
+      <view class="quantity-value">{{order.quantity}}</view>
+      <button class="quantity-button" data-delta="1" bindtap="changeQuantity">+</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Notes</view>
+    <textarea class="notes" placeholder="Optional: less sweet, separate toppings, etc." bindinput="onNotesInput" />
+  </view>
+
+  <view class="checkout-bar">
+    <view>
+      <view class="muted">Total</view>
+      <view class="bar-price">CNY {{calculation.lineTotalText}}</view>
+    </view>
+    <button class="primary-button add-button" bindtap="addToCart">Add to cart</button>
+  </view>
+</view>

@@ -1,0 +1,141 @@
+.order-page {
+  padding-bottom: 160rpx;
+}
+
+.drink-card {
+  background: linear-gradient(135deg, #fff0df, #ffffff);
+}
+
+.source-label {
+  color: #b76323;
+  font-size: 24rpx;
+  font-weight: 800;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+}
+
+.drink-name {
+  font-size: 44rpx;
+  font-weight: 900;
+  margin-top: 12rpx;
+}
+
+.summary-price {
+  color: #b76323;
+  font-size: 42rpx;
+  font-weight: 900;
+  margin-top: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 800;
+  margin-bottom: 20rpx;
+}
+
+.option-grid {
+  display: grid;
+  gap: 18rpx;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.two-columns {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.option {
+  background: #fff7ec;
+  border: 2rpx solid transparent;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+  color: #5f3b24;
+  font-size: 26rpx;
+  font-weight: 700;
+  min-height: 92rpx;
+  padding: 20rpx 14rpx;
+  text-align: center;
+}
+
+.option.selected {
+  background: #7a4a2a;
+  border-color: #7a4a2a;
+  color: #ffffff;
+}
+
+.option.selected .muted {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.topping {
+  min-height: 120rpx;
+}
+
+.quantity-card {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.quantity-control {
+  align-items: center;
+  display: flex;
+  gap: 18rpx;
+}
+
+.quantity-button {
+  align-items: center;
+  background: #f4dfc6;
+  border-radius: 50%;
+  color: #6b3d1f;
+  display: flex;
+  font-size: 36rpx;
+  font-weight: 800;
+  height: 72rpx;
+  justify-content: center;
+  line-height: 72rpx;
+  margin: 0;
+  padding: 0;
+  width: 72rpx;
+}
+
+.quantity-value {
+  font-size: 34rpx;
+  font-weight: 900;
+  min-width: 48rpx;
+  text-align: center;
+}
+
+.notes {
+  background: #fff7ec;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+  height: 150rpx;
+  padding: 20rpx;
+  width: 100%;
+}
+
+.checkout-bar {
+  align-items: center;
+  background: #ffffff;
+  border-radius: 28rpx 28rpx 0 0;
+  bottom: 0;
+  box-shadow: 0 -12rpx 36rpx rgba(84, 48, 25, 0.08);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  left: 0;
+  padding: 24rpx 32rpx 40rpx;
+  position: fixed;
+  right: 0;
+}
+
+.bar-price {
+  color: #b76323;
+  font-size: 40rpx;
+  font-weight: 900;
+}
+
+.add-button {
+  margin: 0;
+  min-width: 300rpx;
+}

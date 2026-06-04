@@ -1,0 +1,44 @@
+<view class="page cart-page">
+  <view class="card cart-header">
+    <view>
+      <view class="section-title">Your cart</view>
+      <view class="muted">{{totalQuantity}} cup(s) selected</view>
+    </view>
+    <button wx:if="{{cart.length}}" class="clear-button" bindtap="clearCart">Clear</button>
+  </view>
+
+  <view wx:if="{{!cart.length}}" class="empty-state card">
+    <view class="empty-icon">MT</view>
+    <view class="empty-title">No drinks yet</view>
+    <view class="muted">Use the ordering skill or choose from the menu.</view>
+    <button class="primary-button" bindtap="continueOrdering">Start ordering</button>
+  </view>
+
+  <view wx:for="{{cart}}" wx:key="id" class="card cart-item">
+    <view class="item-top">
+      <view>
+        <view class="item-name">{{item.productName}}</view>
+        <view class="muted">{{item.size}} - {{item.sweetness}} - {{item.temperature}} - {{item.ice}}</view>
+      </view>
+      <view class="price">CNY {{item.lineTotalText}}</view>
+    </view>
+    <view class="detail-row">
+      <text>Qty: {{item.quantity}}</text>
+      <text>Unit: CNY {{item.unitPriceText}}</text>
+    </view>
+    <view wx:if="{{item.toppings.length}}" class="muted">Toppings: {{item.toppingsText}}</view>
+    <view wx:if="{{item.notes}}" class="notes-preview">Note: {{item.notes}}</view>
+    <button class="remove-button" data-index="{{index}}" bindtap="removeItem">Remove</button>
+  </view>
+
+  <view wx:if="{{cart.length}}" class="checkout-bar">
+    <view>
+      <view class="muted">Total</view>
+      <view class="bar-price">CNY {{totalText}}</view>
+    </view>
+    <view class="actions">
+      <button class="secondary-button continue-button" bindtap="continueOrdering">Add more</button>
+      <button class="primary-button checkout-button" bindtap="checkout">Checkout</button>
+    </view>
+  </view>
+</view>

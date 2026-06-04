@@ -1,0 +1,28 @@
+<view class="page success-page">
+  <view class="card success-card">
+    <view class="checkmark">OK</view>
+    <view class="title">Order confirmed</view>
+    <view class="muted">Your milk tea is being prepared.</view>
+
+    <view class="order-info">
+      <view class="info-row">
+        <text>Order no.</text>
+        <text>{{orderNo}}</text>
+      </view>
+      <view class="info-row">
+        <text>Cups</text>
+        <text>{{cups}}</text>
+      </view>
+      <view class="info-row">
+        <text>Total</text>
+        <text>CNY {{total}}</text>
+      </view>
+    </view>
+
+    <view class="pickup-tip">
+      Please pick up your order when the store calls your number.
+    </view>
+
+    <button class="primary-button" bindtap="backToMenu">Back to menu</button>
+  </view>
+</view>

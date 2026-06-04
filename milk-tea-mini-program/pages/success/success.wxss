@@ -1,0 +1,57 @@
+.success-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.success-card {
+  text-align: center;
+  width: 100%;
+}
+
+.checkmark {
+  align-items: center;
+  background: #7a4a2a;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  font-size: 36rpx;
+  font-weight: 900;
+  height: 124rpx;
+  justify-content: center;
+  margin: 20rpx auto 30rpx;
+  width: 124rpx;
+}
+
+.title {
+  font-size: 46rpx;
+  font-weight: 900;
+  margin-bottom: 12rpx;
+}
+
+.order-info {
+  background: #fff7ec;
+  border-radius: 24rpx;
+  margin: 40rpx 0 28rpx;
+  padding: 12rpx 24rpx;
+}
+
+.info-row {
+  align-items: center;
+  border-bottom: 2rpx solid #f0dfcb;
+  display: flex;
+  font-size: 28rpx;
+  justify-content: space-between;
+  padding: 22rpx 0;
+}
+
+.info-row:last-child {
+  border-bottom: 0;
+}
+
+.pickup-tip {
+  color: #7a4a2a;
+  font-size: 26rpx;
+  line-height: 1.5;
+  margin-bottom: 36rpx;
+}
