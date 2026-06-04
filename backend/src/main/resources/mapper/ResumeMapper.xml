@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.resumemanager.mapper.ResumeMapper">
+    <resultMap id="resumeResultMap" type="com.example.resumemanager.model.Resume">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="source" column="source"/>
+        <result property="city" column="city"/>
+        <result property="currentSalary" column="current_salary"/>
+        <result property="expectedSalary" column="expected_salary"/>
+        <result property="gender" column="gender"/>
+        <result property="age" column="age"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="highestEducation" column="highest_education"/>
+        <result property="workYears" column="work_years"/>
+        <result property="position" column="position"/>
+        <result property="status" column="status"/>
+        <result property="candidateStatus" column="candidate_status"/>
+        <result property="communicationStatus" column="communication_status"/>
+        <result property="intention" column="intention"/>
+        <result property="advantages" column="advantages"/>
+        <result property="school" column="school"/>
+        <result property="major" column="major"/>
+        <result property="degree" column="degree"/>
+        <result property="educationStart" column="education_start"/>
+        <result property="educationEnd" column="education_end"/>
+        <result property="company" column="company"/>
+        <result property="workPosition" column="work_position"/>
+        <result property="workStart" column="work_start"/>
+        <result property="workEnd" column="work_end"/>
+        <result property="workDescription" column="work_description"/>
+        <result property="importedAt" column="imported_at"/>
+        <result property="robotName" column="robot_name"/>
+        <result property="avatarColor" column="avatar_color"/>
+    </resultMap>
+
+    <sql id="resumeColumns">
+        id, name, source, city, current_salary, expected_salary, gender, age, phone, email,
+        highest_education, work_years, position, status, candidate_status, communication_status,
+        intention, advantages, school, major, degree, education_start, education_end, company,
+        work_position, work_start, work_end, work_description, imported_at, robot_name, avatar_color
+    </sql>
+
+    <sql id="queryWhere">
+        <where>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (name LIKE CONCAT('%', #{query.keyword}, '%')
+                OR phone LIKE CONCAT('%', #{query.keyword}, '%')
+                OR position LIKE CONCAT('%', #{query.keyword}, '%')
+                OR robot_name LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != '' and query.status != 'all'">
+                AND status = #{query.status}
+            </if>
+            <if test="query.gender != null and query.gender != ''">
+                AND gender = #{query.gender}
+            </if>
+            <if test="query.education != null and query.education != ''">
+                AND highest_education = #{query.education}
+            </if>
+            <if test="query.intention != null and query.intention != ''">
+                AND intention = #{query.intention}
+            </if>
+            <if test="query.candidateStatus != null and query.candidateStatus != ''">
+                AND candidate_status = #{query.candidateStatus}
+            </if>
+            <if test="query.communicationStatus != null and query.communicationStatus != ''">
+                AND communication_status = #{query.communicationStatus}
+            </if>
+            <if test="query.minAge != null">
+                AND age &gt;= #{query.minAge}
+            </if>
+            <if test="query.maxAge != null">
+                AND age &lt;= #{query.maxAge}
+            </if>
+        </where>
+    </sql>
+
+    <select id="findPage" resultMap="resumeResultMap">
+        SELECT <include refid="resumeColumns"/>
+        FROM resumes
+        <include refid="queryWhere"/>
+        ORDER BY imported_at DESC, id DESC
+        LIMIT #{query.size} OFFSET #{query.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM resumes
+        <include refid="queryWhere"/>
+    </select>
+
+    <select id="findById" resultMap="resumeResultMap">
+        SELECT <include refid="resumeColumns"/>
+        FROM resumes
+        WHERE id = #{id}
+    </select>
+
+    <select id="countByStatus" resultType="com.example.resumemanager.dto.StatItem">
+        SELECT status AS keyName, status AS label, COUNT(*) AS count
+        FROM resumes
+        GROUP BY status
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO resumes (
+            name, source, city, current_salary, expected_salary, gender, age, phone, email,
+            highest_education, work_years, position, status, candidate_status, communication_status,
+            intention, advantages, school, major, degree, education_start, education_end, company,
+            work_position, work_start, work_end, work_description, imported_at, robot_name, avatar_color
+        ) VALUES (
+            #{name}, #{source}, #{city}, #{currentSalary}, #{expectedSalary}, #{gender}, #{age}, #{phone}, #{email},
+            #{highestEducation}, #{workYears}, #{position}, #{status}, #{candidateStatus}, #{communicationStatus},
+            #{intention}, #{advantages}, #{school}, #{major}, #{degree}, #{educationStart}, #{educationEnd}, #{company},
+            #{workPosition}, #{workStart}, #{workEnd}, #{workDescription}, COALESCE(#{importedAt}, CURRENT_TIMESTAMP), #{robotName}, #{avatarColor}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE resumes
+        SET name = #{name},
+            source = #{source},
+            city = #{city},
+            current_salary = #{currentSalary},
+            expected_salary = #{expectedSalary},
+            gender = #{gender},
+            age = #{age},
+            phone = #{phone},
+            email = #{email},
+            highest_education = #{highestEducation},
+            work_years = #{workYears},
+            position = #{position},
+            status = #{status},
+            candidate_status = #{candidateStatus},
+            communication_status = #{communicationStatus},
+            intention = #{intention},
+            advantages = #{advantages},
+            school = #{school},
+            major = #{major},
+            degree = #{degree},
+            education_start = #{educationStart},
+            education_end = #{educationEnd},
+            company = #{company},
+            work_position = #{workPosition},
+            work_start = #{workStart},
+            work_end = #{workEnd},
+            work_description = #{workDescription},
+            robot_name = #{robotName},
+            avatar_color = #{avatarColor}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE resumes
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM resumes WHERE id = #{id}
+    </delete>
+</mapper>
