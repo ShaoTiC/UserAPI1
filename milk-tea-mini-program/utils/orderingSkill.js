@@ -46,8 +46,17 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function includesAlias(text, term) {
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(term)}($|[^a-z0-9])`);
+  return pattern.test(text);
+}
+
 function matchAlias(text, aliases) {
-  return aliases.find((entry) => entry.terms.some((term) => text.includes(term)));
+  return aliases.find((entry) => entry.terms.some((term) => includesAlias(text, term)));
 }
 
 function parseQuantity(text) {
