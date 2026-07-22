@@ -19,6 +19,7 @@ disable-model-invocation: true
 ```text
 job-application-email/
 ├── SKILL.md
+├── DEPLOY.md                  # 中文部署与运行指南
 ├── scripts/
 │   ├── check_security.py      # 发送前安全与合规检查（必需）
 │   ├── send_batch.py          # 批量发送主入口
@@ -41,6 +42,10 @@ job-application-email/
 邮件正文必须使用以下固定文案，**不得改写、增删或润色**：
 
 > 我是东北农业大学计算机专业大四的本科生,Java基础扎实且掌握Agent开发,有后端实习经历,独立开发智能体协作平台。
+
+## 部署文档
+
+完整可操作步骤见 [DEPLOY.md](DEPLOY.md)（克隆、SMTP、配置、验收、cron / Windows 定时、运维与排障）。
 
 ## 快速开始
 
