@@ -1,0 +1,51 @@
+# 本地配置示例 — 复制到 ~/.job-outreach/config.yaml 后填写
+# 切勿将含真实密码的配置提交到 Git
+
+mail:
+  provider: smtp          # smtp | http_api
+  from_email: "3461630168@qq.com"
+  smtp_host: "smtp.qq.com"
+  smtp_port: 465
+  smtp_ssl: true
+  smtp_username: "3461630168@qq.com"
+  # 推荐：export JOB_OUTREACH_SMTP_PASSWORD='你的授权码'
+  # smtp_password: ""     # 不推荐明文
+  max_retries: 3
+  retry_base_delay_sec: 2
+  min_interval_sec: 8
+  max_attachment_mb: 5
+  timeout_sec: 30
+
+  # 若使用 HTTP API（示例结构，按服务商调整）：
+  # provider: http_api
+  # api_url: "https://api.example.com/v1/email/send"
+  # api_key_header: "Authorization"   # 可选；默认 Bearer
+  # api_extra_fields: {}
+
+email:
+  from_name: "邵俊凯"
+  subject: "求职-Java开发实习生-邵俊凯-东北农业大学"
+  attachment_filename: "邵俊凯-Java开发实习生-简历.pdf"
+  # 可选礼貌收尾；自我介绍正文不可改
+  closing: "附件为个人简历，感谢您抽空查阅。期待有机会与贵司交流。"
+
+paths:
+  companies: "~/.job-outreach/companies.csv"
+  resume: "~/.job-outreach/resume.pdf"
+  self_intro: "assets/self_intro.txt"   # 相对 skill 根目录
+  state: "~/.job-outreach/state.json"
+
+schedule:
+  timezone: "Asia/Shanghai"
+  morning: "09:30"
+  afternoon: "14:30"
+  batch_size: 5
+
+security:
+  daily_send_limit: 40
+  blocked_domains:
+    - example.com
+    - mailinator.com
+
+report:
+  dir: "~/.job-outreach/reports"
