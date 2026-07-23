@@ -56,13 +56,18 @@ UserAPI1/.cursor/skills/job-application-email/
 
 设计原则：**单公司失败不拖垮全局**；**只推全新岗位**；默认经 **create_note** 写便签/记事本；发信/写笔记失败**不标记已通知**，以便下轮重试。
 
-### 0.1 推送渠道 notes（当前默认）
+### 0.1 推送渠道 notes（当前默认 · DroiClaw）
+
+完整 Tool 名：**`notes_create_note`**（provider `notes`；参数 `title`/`content`/`folder_id`）。  
+手册见 `references/droiclaw-mcp-handbook.md`。
 
 | 情况 | 处理 |
 |------|------|
-| Cursor 无 notes MCP（本云端环境即如此） | `create_note` 回退写本地 `~/.job-outreach/notes/<folder_id>/*.txt` |
-| 设置了 `JOB_NOTES_WEBHOOK_URL` | 优先 POST `{title,content,folder_id}`；失败再回退本地 |
+| 手机 DroiClaw 已连接 | Agent/桥接调用 `notes_create_note` |
+| 设置了 `DROICLAW_MCP_URL` | 脚本 POST 该 Tool |
+| 云端无 MCP（本环境） | 回退本地 `~/.job-outreach/notes/<folder_id>/*.txt` |
 | 想改回邮件 | `notify_channel: email` 并配置 SMTP |
+| 删除笔记 | ❌ 手册未开放 `delete_note`，禁止设计删除流程 |
 
 ---
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""将全新岗位写入便签（create_note），替代邮件推送以便演示。"""
+"""将全新岗位通过 DroiClaw MCP **notes_create_note** 写入手机便签。
+
+手册：便签 / 待办（provider: notes）
+创建笔记 notes_create_note —— 参数 title + content + folder_id
+"""
 
 from __future__ import annotations
 
@@ -18,7 +22,7 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
-from create_note import create_note
+from create_note import TOOL_NAME, notes_create_note
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -83,7 +87,7 @@ def render_note_content(jobs: list[dict[str, Any]], *, when: str, user_note: str
         if snippet:
             lines.append(f"   职位内容：{snippet}")
         lines.append("")
-    lines.append("（由 job-application-email skill · provider=notes · create_note 生成）")
+    lines.append("（由 job-application-email skill · notes_create_note 生成）")
     return "\n".join(lines)
 
 
@@ -164,16 +168,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         for title, content in tasks:
-            print(f"DRY_RUN create_note title={title!r} folder_id={folder_id!r}")
+            print(f"DRY_RUN {TOOL_NAME} title={title!r} folder_id={folder_id!r}")
             print(content[:500])
             print("---")
         return 0
 
     for title, content in tasks:
-        result = create_note(title, content, folder_id, notes_dir=notes_dir)
+        result = notes_create_note(title, content, folder_id, notes_dir=notes_dir)
         created.append(result.to_dict())
         print(
-            f"OK create_note provider={result.provider} path={result.path_or_uri} "
+            f"OK {TOOL_NAME} provider={result.provider} path={result.path_or_uri} "
             f"msg={result.message}"
         )
         if not result.ok:
@@ -189,13 +193,14 @@ def main(argv: list[str] | None = None) -> int:
                 "website": j.get("website"),
                 "first_seen_at": now.isoformat(),
                 "notified_at": now.isoformat(),
-                "notify_channel": "notes",
+                "notify_channel": "notes_create_note",
             }
     state["push_log"].append(
         {
             "at": now.isoformat(),
             "count": len(selected),
             "channel": "notes",
+            "tool": TOOL_NAME,
             "folder_id": folder_id,
             "notes": created,
         }
@@ -208,14 +213,14 @@ def main(argv: list[str] | None = None) -> int:
     report = (
         f"# 新岗位便签报告\n\n"
         f"- 时间：{when}\n"
-        f"- 渠道：notes / create_note\n"
+        f"- 渠道：notes / {TOOL_NAME}\n"
         f"- folder_id：{folder_id}\n"
         f"- 岗位数：{len(selected)}\n"
         f"- 笔记数：{len(created)}\n\n"
         f"```json\n{json.dumps(created, ensure_ascii=False, indent=2)}\n```\n"
     )
     (report_dir / f"report-{stamp}-notes.md").write_text(report, encoding="utf-8")
-    print(f"OK notes saved jobs={len(selected)} notes={len(created)}")
+    print(f"OK {TOOL_NAME} saved jobs={len(selected)} notes={len(created)}")
     return 0
 
 

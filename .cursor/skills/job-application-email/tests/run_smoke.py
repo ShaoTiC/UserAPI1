@@ -131,7 +131,10 @@ report:
                 "--skip-security",
             ]
         )
-        if p.returncode != 0 or "create_note" not in (p.stdout + p.stderr):
+        out = p.stdout + p.stderr
+        if p.returncode != 0 or (
+            "notes_create_note" not in out and "create_note" not in out
+        ):
             failures.append(f"save_notes failed: {p.stdout}\n{p.stderr}")
         note_files = list((tmp / "notes" / "job-digest").glob("*.txt")) if (tmp / "notes" / "job-digest").exists() else []
         if not note_files:

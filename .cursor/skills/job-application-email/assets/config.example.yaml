@@ -6,14 +6,14 @@ mode: digest
 notify_channel: notes   # notes | email
 
 # --- 便签 / 待办（provider: notes）---
-# 创建笔记 create_note —— 参数 title + content + folder_id
+# DroiClaw 完整 Tool 名：notes_create_note
+# 参数：title + content + folder_id
 notes:
-  folder_id: "job-digest"          # 笔记本/文件夹 ID；本地回退时作为子目录名
-  one_note_per_job: false          # true=每个岗位一条笔记；false=本轮汇总一条
+  folder_id: "job-digest"
+  one_note_per_job: false
   local_dir: "~/.job-outreach/notes"
-  # 可选：自建桥接 Cursor notes / 其它便签服务
-  # 设置环境变量 JOB_NOTES_WEBHOOK_URL 后，create_note 会优先 POST
-  # {"title","content","folder_id"}
+  # 手机/桥接：export DROICLAW_MCP_URL='https://你的-mcp-桥接/invoke'
+  # 请求将调用 tool=notes_create_note
 
 mail:
   provider: smtp

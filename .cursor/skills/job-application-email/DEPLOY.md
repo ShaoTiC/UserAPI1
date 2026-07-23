@@ -42,8 +42,10 @@ Skill 目录：`.cursor/skills/job-application-email/`
 2. **无固定发送时间**：轮询发现新岗位后立刻处理  
 3. 关键词：Java / 后端 / 实习 / 校招 / Agent / 开发  
 4. **只发全新，宁少勿多**  
-5. **主输出：便签 create_note（title/content/folder_id）**；无 MCP 时写本地记事本 `.txt`  
+5. **主输出：DroiClaw `notes_create_note(title, content, folder_id)`**；无 MCP 时写本地记事本 `.txt`  
 6. 邮件改为可选；**关闭外投简历**
+
+能力手册副本：`references/droiclaw-mcp-handbook.md`。
 
 说明：官网不会主动 webhook，本 skill 用短间隔轮询近似「立刻」。演示优先走 notes，无需配置 SMTP。
 
@@ -82,7 +84,7 @@ python scripts/run_daily.py --config ~/.job-outreach/config.yaml
 # 查看生成的记事本
 ls ~/.job-outreach/notes/job-digest/
 
-# 手动创建一条笔记
+# 手动创建一条笔记（Tool: notes_create_note）
 python scripts/create_note.py --title "测试" --content "hello" --folder-id job-digest
 
 # 持续轮询
