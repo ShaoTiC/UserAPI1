@@ -1,4 +1,6 @@
-company_id,company_name,website,email,note
-acme001,示例科技,https://www.example-corp.com,hr@example-corp.com,校招入口
-beta002,北斗软件,https://www.beidou-soft.example,campus@beidou-soft.example,官网招聘页
-gamma003,云启网络,https://www.yunqi.example,jobs@yunqi.example,Java 方向
+company_id,company_name,website,careers_url,source_type,item_regex,keywords,email,note
+demo001,示例科技A,https://www.example-corp.com,assets/fixtures/demo_jobs_a.json,fixture,,,Java|后端|实习,,本地演示数据A
+demo002,示例科技B,https://www.beidou-soft.example,assets/fixtures/demo_jobs_b.json,fixture,,,Java|Agent|校招,,本地演示数据B
+# 真实站点示例（需按官网调整 careers_url / source_type / item_regex）：
+# acme001,某某公司,https://www.acme.com,https://www.acme.com/jobs/rss,rss,,,Java|后端,hr@acme.com,RSS源
+# beta002,某某网络,https://www.beta.com,https://www.beta.com/careers,html_regex,"<a[^>]+href=\"(?P<url>[^\"]+)\"[^>]*>(?P<title>[^<]*(?:Java|后端|实习)[^<]*)</a>",Java|后端,,HTML正则

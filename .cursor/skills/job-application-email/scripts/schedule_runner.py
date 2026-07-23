@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""工作日定时调度：默认 Asia/Shanghai 09:30 与 14:30。"""
+"""调度器：默认工作日触发每日岗位摘要；可选保留 outreach 时段。"""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
+from run_daily import main as daily_main
 from send_batch import is_workday, main as send_main
 
 
@@ -35,24 +36,20 @@ def parse_hhmm(value: str) -> tuple[int, int]:
     return int(hh), int(mm)
 
 
-def due_slot(now: datetime, morning: str, afternoon: str, window_sec: int) -> str | None:
-    """若当前时刻落在某个发送窗口内则返回 slot 名。"""
-    for name, hhmm in (("morning", morning), ("afternoon", afternoon)):
-        hh, mm = parse_hhmm(hhmm)
-        target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-        delta = (now - target).total_seconds()
-        if 0 <= delta <= window_sec:
-            return name
-    return None
+def due_slot(now: datetime, name: str, hhmm: str, window_sec: int) -> bool:
+    hh, mm = parse_hhmm(hhmm)
+    target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    delta = (now - target).total_seconds()
+    return 0 <= delta <= window_sec
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="求职邮件工作日调度器")
+    parser = argparse.ArgumentParser(description="求职 skill 调度器（摘要优先）")
     parser.add_argument("--config", default=os.environ.get("JOB_OUTREACH_CONFIG"), required=False)
     parser.add_argument("--skill-root", default=str(Path(__file__).resolve().parents[1]))
-    parser.add_argument("--poll-sec", type=int, default=30, help="轮询间隔秒")
-    parser.add_argument("--window-sec", type=int, default=90, help="每个定点的触发窗口秒数")
-    parser.add_argument("--once", action="store_true", help="只检查一轮后退出（便于 cron/测试）")
+    parser.add_argument("--poll-sec", type=int, default=30)
+    parser.add_argument("--window-sec", type=int, default=90)
+    parser.add_argument("--once", action="store_true")
     args = parser.parse_args(argv)
 
     if not args.config:
@@ -61,35 +58,51 @@ def main(argv: list[str] | None = None) -> int:
     cfg = load_config(Path(args.config).expanduser())
     schedule = cfg.get("schedule") or {}
     tz = ZoneInfo(schedule.get("timezone", "Asia/Shanghai"))
+    digest_at = schedule.get("digest_time", "09:00")
+    enable_outreach = bool(schedule.get("enable_outreach_slots", False))
     morning = schedule.get("morning", "09:30")
     afternoon = schedule.get("afternoon", "14:30")
 
     fired: set[str] = set()
-    print(f"scheduler started tz={tz} morning={morning} afternoon={afternoon}")
+    print(
+        f"scheduler started tz={tz} digest={digest_at} "
+        f"outreach_slots={enable_outreach}"
+    )
 
     while True:
         now = datetime.now(tz)
         day = now.strftime("%Y-%m-%d")
-        # 新的一天清空 fired
         fired = {k for k in fired if k.startswith(day)}
 
         if is_workday(now):
-            slot = due_slot(now, morning, afternoon, args.window_sec)
-            key = f"{day}:{slot}" if slot else ""
-            if slot and key not in fired:
-                print(f"trigger slot={slot} at {now.isoformat()}")
-                code = send_main(
-                    [
-                        "--config",
-                        args.config,
-                        "--skill-root",
-                        args.skill_root,
-                        "--slot",
-                        slot,
-                    ]
-                )
-                fired.add(key)
-                print(f"slot={slot} finished exit={code}")
+            if due_slot(now, "digest", digest_at, args.window_sec):
+                key = f"{day}:digest"
+                if key not in fired:
+                    print(f"trigger digest at {now.isoformat()}")
+                    code = daily_main(
+                        ["--config", args.config, "--skill-root", args.skill_root]
+                    )
+                    fired.add(key)
+                    print(f"digest finished exit={code}")
+
+            if enable_outreach:
+                for slot, hhmm in (("morning", morning), ("afternoon", afternoon)):
+                    if due_slot(now, slot, hhmm, args.window_sec):
+                        key = f"{day}:{slot}"
+                        if key not in fired:
+                            print(f"trigger outreach slot={slot}")
+                            code = send_main(
+                                [
+                                    "--config",
+                                    args.config,
+                                    "--skill-root",
+                                    args.skill_root,
+                                    "--slot",
+                                    slot,
+                                ]
+                            )
+                            fired.add(key)
+                            print(f"slot={slot} finished exit={code}")
         else:
             print(f"NOT_WORKDAY skip {now.isoformat()}")
 

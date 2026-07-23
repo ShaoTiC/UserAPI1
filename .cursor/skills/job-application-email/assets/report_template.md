@@ -1,7 +1,7 @@
-# 求职投递报告
+# 运行报告
 
 - 日期：{{date}}
-- 时段：{{slot}}
+- 时段/模式：{{slot}}
 - 时区：{{timezone}}
 - Dry-run：{{dry_run}}
 - 生成时间：{{generated_at}}
@@ -10,27 +10,32 @@
 
 | 指标 | 数量 |
 |------|------|
-| 本批目标 | {{total_count}} |
+| 本批条目 | {{total_count}} |
 | 成功 | {{success_count}} |
 | 失败 | {{fail_count}} |
 | 跳过/预览 | {{skip_count}} |
 
 ## 明细
 
-| 公司 | 邮箱 | 结果码 | 尝试次数 | 说明 |
-|------|------|--------|----------|------|
+| 公司 | 岗位/邮箱 | 链接或说明 | 结果 |
+|------|-----------|------------|------|
 {{result_rows}}
 
-## 失败排查（勾选）
+## 失败排查（Digest）
 
-- [ ] 是否出现 `AUTH_FAILED`？若是：停止批次，轮换授权码/API Key 后重试
-- [ ] 是否出现 `RATE_LIMITED`？若是：增大间隔、减小 batch，下一 slot 用 `--retry-failed`
-- [ ] 是否出现 `INVALID_RECIPIENT`？若是：回官网核对邮箱并更新 CSV
-- [ ] 是否出现 `SPAM_REJECTED`？若是：降低频率 / 换企业邮，次日再发
-- [ ] 是否触及 `daily_send_limit`？若是：等待次日
+- [ ] 采集 `errors` 是否集中在某几家公司？
+- [ ] 是否 JS 渲染导致 HTML 为空？考虑改 RSS/API
+- [ ] 关键词是否过严导致 `NO_JOBS`？
+- [ ] 是否 `AUTH_FAILED`？重做授权码
+- [ ] 是否今日已发送？需要则 `--force`
+
+## 失败排查（Outreach，若启用）
+
+- [ ] `AUTH_FAILED` / `RATE_LIMITED` / `INVALID_RECIPIENT`
+- [ ] 简历与自我介绍是否通过 `--mode outreach` 检查
 
 ## 次日行动
 
-1. 对 `failed` / `deferred` 执行：`python scripts/send_batch.py --config <cfg> --retry-failed`
-2. 更新公司列表中的无效邮箱
-3. 确认 cron / `schedule_runner.py` 仍在工作日 09:30 与 14:30 触发
+1. 更新无效的 `careers_url`
+2. 确认定时任务仍在工作日 `digest_time` 触发
+3. 对未成功发送的摘要直接重跑 `send_digest.py`

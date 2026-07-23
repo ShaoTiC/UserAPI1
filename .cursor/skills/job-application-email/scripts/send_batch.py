@@ -149,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
     cfg = load_config(cfg_path)
 
     if not args.skip_security and not args.dry_run:
-        code = security_main(["--config", str(cfg_path), "--skill-root", str(skill_root)])
+        code = security_main(
+            ["--config", str(cfg_path), "--skill-root", str(skill_root), "--mode", "outreach"]
+        )
         if code != 0:
             return code
 

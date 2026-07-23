@@ -1,209 +1,195 @@
 ---
 name: job-application-email
-description: 在工作日固定时段（默认上午 9:30、下午 14:30）向目标公司邮箱批量发送求职邮件（简历附件 + 固定自我介绍）。适用于投递、冷邮件、日更求职触达；当用户提到求职邮件、批量投递、定时发简历、公司邮箱列表或 job outreach 时使用本 skill。
+description: 工作日从目标公司官网/RSS/JSON 采集新发布招聘岗位，汇总约 10 条发送到用户自己的邮箱（默认 3461630168@qq.com），帮助尽快获知岗位并及时投递。可选保留向外投递简历能力。当用户提到招聘速递、岗位采集、官网新岗位、每日岗位摘要、求职信息聚合时使用本 skill。
 disable-model-invocation: true
 ---
 
-# Job Application Email（求职定时投递）
+# Job Application Email（招聘速递 + 可选外投）
 
-面向求职者的可复用投递工作流：读取公司邮箱列表 → 安全检查 → 组装邮件（固定自我介绍 + 简历附件）→ 调用邮件 API/SMTP 发送 → 记录结果与重试。
+## 主功能（默认 `mode: digest`）
+
+工作日定时从配置的公司招聘页采集**新岗位** → 按关键词过滤 → 去重 → 汇总约 **10** 条 → 发送到用户邮箱 **3461630168@qq.com**。
+
+目标：替用户节省信息收集时间，尽快收到可投递岗位。
+
+## 可选功能（`mode: outreach`）
+
+保留原「向公司邮箱发送简历 + 固定自我介绍」能力，默认关闭（`schedule.enable_outreach_slots: false`）。
 
 ## 何时使用
 
-- 用户要求按工作日固定时间向目标公司发求职邮件
-- 用户已有公司官网/邮箱列表，需要批量或定时投递
-- 用户要求校验投递安全性、生成投递报告、排查发送失败
+- 用户要每日接收官网新岗位摘要
+- 用户已有公司官网/招聘页列表，需要自动采集与去重
+- 用户提到招聘速递、岗位聚合、及时投递
+- （可选）仍需批量向外发求职邮件
 
 ## 目录结构
 
 ```text
 job-application-email/
 ├── SKILL.md
-├── DEPLOY.md                  # 中文部署与运行指南
+├── DEPLOY.md
 ├── scripts/
-│   ├── check_security.py      # 发送前安全与合规检查（必需）
-│   ├── send_batch.py          # 批量发送主入口
-│   ├── schedule_runner.py     # 工作日 9:30 / 14:30 调度入口
-│   └── lib_mail.py            # SMTP / HTTP API 发送实现
+│   ├── check_security.py      # 安全检查（digest / outreach）
+│   ├── job_sources.py         # RSS / HTML正则 / JSON / fixture 采集
+│   ├── collect_jobs.py        # 采集入口
+│   ├── send_digest.py         # 发送岗位摘要到用户邮箱
+│   ├── run_daily.py           # 每日流水线：采集 → 摘要
+│   ├── schedule_runner.py     # 工作日定时（默认 09:00 摘要）
+│   ├── send_batch.py          # （可选）向外投递简历
+│   └── lib_mail.py            # SMTP / HTTP API
 ├── references/
-│   └── review_standards.md    # 投递内容与合规审核标准
+│   └── review_standards.md
 ├── assets/
-│   ├── report_template.md     # 投递报告模板
-│   ├── config.example.yaml    # 配置样例
-│   ├── companies.example.csv  # 公司邮箱列表示例
-│   ├── self_intro.txt         # 固定自我介绍
-│   └── resume/                # 放置简历 PDF（用户自行放入）
+│   ├── report_template.md
+│   ├── config.example.yaml
+│   ├── companies.example.csv
+│   ├── fixtures/              # 本地演示岗位数据
+│   ├── self_intro.txt         # outreach 用
+│   └── resume/
 └── tests/
-    └── test_cases.md          # 测试用例
 ```
-
-## 固定自我介绍（verbatim）
-
-邮件正文必须使用以下固定文案，**不得改写、增删或润色**：
-
-> 我是东北农业大学计算机专业大四的本科生,Java基础扎实且掌握Agent开发,有后端实习经历,独立开发智能体协作平台。
 
 ## 部署文档
 
-完整可操作步骤见 [DEPLOY.md](DEPLOY.md)（克隆、SMTP、配置、验收、cron / Windows 定时、运维与排障）。
+完整步骤见 [DEPLOY.md](DEPLOY.md)。
 
-## 快速开始
+## 快速开始（digest）
 
-### 1. 准备配置与资产
+### 1. 配置
 
-1. 复制 `assets/config.example.yaml` → 本地私有路径（如 `~/.job-outreach/config.yaml`），填入 SMTP 或邮件 API 凭证。
-2. 复制 `assets/companies.example.csv` → 实际公司列表文件，填入目标邮箱。
-3. 将简历 PDF 放到 `assets/resume/`（或在 config 中指定绝对路径）。
-4. **禁止**把真实 SMTP 密码、API Key 写入仓库；使用环境变量或本地配置文件。
+1. 复制 `assets/config.example.yaml` → `~/.job-outreach/config.yaml`
+2. 复制 `assets/companies.example.csv` → `~/.job-outreach/companies.csv`，填入真实 `careers_url` / `source_type`
+3. 设置 `digest.to_email: 3461630168@qq.com`（示例已默认）
+4. `export JOB_OUTREACH_SMTP_PASSWORD='授权码'`
 
-### 2. 发送前安全检查（必须）
+### 2. 安全检查
 
 ```bash
-python scripts/check_security.py \
-  --config ~/.job-outreach/config.yaml \
-  --companies ~/.job-outreach/companies.csv \
-  --resume /path/to/resume.pdf
+python scripts/check_security.py --config ~/.job-outreach/config.yaml --mode digest
 ```
 
-退出码 `0` 才允许继续发送；非 0 必须修复后重试。
-
-### 3. 立即试发（单封 dry-run / 实发）
+### 3. 试跑（本地 fixture 可不联网）
 
 ```bash
-# 仅预览，不真正发送
-python scripts/send_batch.py --config ~/.job-outreach/config.yaml --dry-run --limit 1
-
-# 实发 1 封到列表中下一条未发送记录
-python scripts/send_batch.py --config ~/.job-outreach/config.yaml --limit 1
+# 公司列表可先指向 skill 内 assets/companies.example.csv（fixture 演示）
+python scripts/run_daily.py --config ~/.job-outreach/config.yaml --dry-run --force-schedule --limit 10
 ```
 
-### 4. 工作日定时任务（9:30 / 14:30）
+### 4. 实发摘要到自己邮箱
 
 ```bash
-# 前台运行调度器（适合长期开机的本机 / 服务器）
+python scripts/run_daily.py --config ~/.job-outreach/config.yaml --force-schedule --limit 10
+```
+
+### 5. 定时（工作日 09:00）
+
+```bash
+# 前台
 python scripts/schedule_runner.py --config ~/.job-outreach/config.yaml
 
-# 或使用 cron（推荐生产环境）
-# 工作日 9:30
-30 9 * * 1-5 cd /path/to/job-application-email && python scripts/send_batch.py --config ~/.job-outreach/config.yaml --slot morning
-# 工作日 14:30
-30 14 * * 1-5 cd /path/to/job-application-email && python scripts/send_batch.py --config ~/.job-outreach/config.yaml --slot afternoon
+# cron 推荐
+0 9 * * 1-5 cd /path/to/job-application-email && . .venv/bin/activate && . ~/.job-outreach/env.sh && python scripts/run_daily.py --config ~/.job-outreach/config.yaml >> ~/.job-outreach/cron.log 2>&1
 ```
-
-时区默认 `Asia/Shanghai`，可在 config 的 `schedule.timezone` 覆盖。
 
 ## Agent 执行清单
 
-复制并跟踪：
-
 ```text
 Task Progress:
-- [ ] 确认 config / companies / resume / self_intro 路径
-- [ ] 阅读 references/review_standards.md 并核对邮件主题与正文
-- [ ] 运行 check_security.py，确认 exit 0
-- [ ] dry-run 1 封，核对收件人、主题、附件名
-- [ ] 小批量实发（limit=1~3），确认对方邮箱可收
-- [ ] 配置 cron 或 schedule_runner（工作日 9:30 / 14:30）
-- [ ] 按 assets/report_template.md 输出投递报告
-- [ ] 对失败项按「失败场景与排查」执行重试或人工介入
+- [ ] 确认 mode=digest，digest.to_email 正确
+- [ ] 确认 companies.csv 含 careers_url + source_type
+- [ ] check_security.py --mode digest → PASS
+- [ ] collect_jobs.py 能拉到岗位（或 fixture 演示）
+- [ ] send_digest.py --dry-run 预览约 10 条
+- [ ] 实发一封到 3461630168@qq.com 并查收
+- [ ] 配置工作日 digest_time 定时任务
+- [ ] 按报告检查失败源并重试
 ```
 
-## 邮件组装规范
+## 采集源类型
 
-| 字段 | 规则 |
-|------|------|
-| To | 来自公司列表 `email` 列；每封一公司 |
-| Subject | 默认：`求职-Java开发实习生-邵俊凯-东北农业大学`（可用 config 覆盖） |
-| Body | 固定自我介绍全文；可追加一行礼貌收尾（见 config `email.closing`，可为空） |
-| Attachment | 简历 PDF，文件名建议：`邵俊凯-Java开发实习生-简历.pdf` |
-| From | config 中的发件人；须与 SMTP/API 账号一致 |
+| source_type | careers_url | 额外字段 | 说明 |
+|-------------|-------------|---------|------|
+| `fixture` | 相对 skill 的 JSON 路径 | — | 本地演示/测试 |
+| `rss` | RSS/Atom URL | — | 优先推荐 |
+| `html_regex` | 招聘列表页 URL | `item_regex`（命名组 `title`/`url`） | 静态 HTML |
+| `json` | JSON API URL | 可选 `json_list_key` 等 | 结构化接口 |
 
-每次时段默认发送数量由 `schedule.batch_size` 控制（建议 3~10），避免短时间海量投递触发反垃圾。
+关键词：`digest.keywords` 全局过滤；CSV `keywords` 列用 `|` 分隔可覆盖单行。
 
-## 状态与幂等
+## 去重与配额
 
-- 状态文件默认：`~/.job-outreach/state.json`（可配置）
-- 同一 `company_id` + `email` 在成功后标记 `sent`，默认不再重发
-- 失败标记 `failed` + `last_error`，进入重试队列
-- 使用 `--force` 才允许对已 `sent` 记录重发
+- `state.json` 中 `seen_jobs` 记录已通知岗位，避免重复推送
+- `digest.daily_job_limit` 默认 10；优先全新岗位，不足时用当日仍匹配的已知岗位补齐
+- 同一自然日默认只发一封摘要（`--force` 可重发）
 
-## 外部 API / SMTP
+## 邮件内容
 
-本 skill 支持两种发送后端（config `mail.provider`）：
-
-1. **smtp**（默认）：标准 SMTP（QQ / 163 / Gmail / 企业邮）
-2. **http_api**：通用 HTTP JSON API（如 Resend / SendGrid 兼容适配；见 `lib_mail.py`）
-
-凭证优先从环境变量读取：
-
-| 变量 | 用途 |
-|------|------|
-| `JOB_OUTREACH_SMTP_PASSWORD` | SMTP 密码 / 授权码 |
-| `JOB_OUTREACH_API_KEY` | HTTP API Key |
-| `JOB_OUTREACH_CONFIG` | 覆盖默认 config 路径 |
+发往 `digest.to_email`，主题默认：`【每日招聘速递】{date} · {count} 条新岗位`  
+正文含：公司、岗位名、链接、地点/时间/摘要（若有）。
 
 ## 失败场景、排查与重试
 
-详见下表；脚本内置指数退避重试（默认最多 3 次：2s → 4s → 8s）。
+| 失败码 / 现象 | 可能原因 | 排查 | 重试 |
+|---------------|----------|------|------|
+| `CONFIG_INVALID` | 缺 to_email / SMTP 字段 | 对照 config.example.yaml | 修配置后重跑 |
+| `COMPANIES_SCHEMA` | CSV 缺 careers_url/source_type | 补齐列 | 不自动重试 |
+| `CAREERS_URL_MISSING` | 某行无招聘页 | 补 URL | 跳过该行 |
+| `SOURCE_TYPE_INVALID` | 类型不支持 | 改为 rss/html_regex/json/fixture | — |
+| 采集 `URLError`/`HTTPError` | 官网不可达、反爬 | 换 RSS/API；增大 timeout；检查 UA | 下一日再采；本源记入 errors |
+| `JOBS_CACHE_MISSING` | 未先采集 | 先跑 collect_jobs / run_daily | — |
+| `NO_JOBS` | 无匹配关键词 | 放宽 keywords；检查源 | 不发信（正常） |
+| `ALREADY_SENT` | 今日已发 | 等明日或 `--force` | — |
+| `AUTH_FAILED` | 授权码错误 | 重做 QQ 授权码 | 熔断，修好再发 |
+| `TIMEOUT` / `RATE_LIMITED` | 网络或限流 | 退避（mail.max_retries） | 指数退避 3 次 |
+| 页面为空但浏览器有数据 | **JS 渲染站点** | 改用 RSS/官方 API；或后续接入浏览器采集 | 需人工调整源 |
 
-| 失败码 / 现象 | 可能原因 | 排查步骤 | 重试策略 |
-|---------------|----------|----------|----------|
-| `CONFIG_INVALID` | YAML 缺字段、路径错误 | 对照 `config.example.yaml`；跑 `check_security.py` | 不自动重试；修复配置后人工重跑 |
-| `RESUME_MISSING` | 简历文件不存在或非 PDF | 检查 `resume.path`；确认扩展名为 `.pdf` | 不自动重试 |
-| `INTRO_MISMATCH` | 自我介绍被改动 | 恢复 `assets/self_intro.txt` 为固定原文 | 不自动重试 |
-| `SECURITY_BLOCKED` | 域名黑名单、日限额、可疑附件 | 读 `check_security.py` 输出；见 [review_standards.md](references/review_standards.md) | 不自动重试 |
-| `AUTH_FAILED` (535/401) | 授权码错误、未开 SMTP、API Key 失效 | 重新生成授权码；确认环境变量；检查 From 是否匹配 | 最多 1 次立即重试；仍失败则停止整批 |
-| `RATE_LIMITED` (429/550 freq) | 发送过快 / 日限额 | 增大 `mail.min_interval_sec`；减小 `batch_size` | 退避重试 3 次；仍失败则本 slot 剩余改 `deferred` |
-| `TIMEOUT` / 网络错误 | DNS、防火墙、代理 | `ping`/`curl` 测连通；检查代理与 465/587 端口 | 指数退避 3 次 |
-| `INVALID_RECIPIENT` (550/551) | 邮箱不存在或拒收 | 人工核实官网招聘邮箱；更新 CSV | 不重试该条；标记 `invalid` |
-| `ATTACHMENT_REJECTED` | 附件过大或类型拦截 | 压缩/精简 PDF；确认 `< mail.max_attachment_mb` | 不自动重试 |
-| `SPAM_REJECTED` | 内容被判垃圾邮件 | 确认只用固定介绍；换企业邮发送；降低频率 | 本 slot 停止；次日再试 |
-| `PARTIAL_BATCH_FAIL` | 批次中部分成功 | 查 `state.json`；只对 `failed`/`deferred` 重跑 | `send_batch.py --retry-failed` |
-| `NOT_WORKDAY` / `WRONG_SLOT` | 非工作日或非调度窗口 | 确认时区与 cron；节假日可手动 `--force-schedule` | 跳过，不记失败 |
-| `STATE_CORRUPT` | state.json 损坏 | 从 `state.json.bak` 恢复；或备份后重建 | 不自动重试 |
+### 重试机制
 
-### 重试机制（实现约定）
+1. 邮件发送：与既有 `lib_mail` 一致，瞬时失败指数退避最多 3 次。
+2. 单公司采集失败：记入当日 cache `errors`，不阻断其他公司。
+3. 摘要发送失败：不写入 `digest_daily` 成功标记，可直接重跑 `send_digest.py`。
+4. 已成功摘要中的岗位写入 `seen_jobs`，次日不会重复推送同一 `job_id`。
 
-1. **单封瞬时重试**：网络/超时/429 → 最多 `mail.max_retries`（默认 3），间隔 `base * 2^n` 秒。
-2. **认证失败熔断**：`AUTH_FAILED` 立即终止本批次，避免密码错误刷爆。
-3. **跨时段重试**：`failed`/`deferred` 进入下一 slot（下午或下一工作日上午）由 `--retry-failed` 或调度器自动拾取。
-4. **人工门禁**：连续 5 封失败或安全检查失败 → 写入报告并要求人工确认后再继续。
-5. **幂等**：成功写入 state 后，默认跳过，防止 cron 重复触发导致重复投递。
+## 可选：outreach 外投
 
-## 输出报告
+固定自我介绍（不得改写）：
 
-发送结束后，按 [assets/report_template.md](assets/report_template.md) 生成当日报告，保存到 config 中的 `report.dir`。
+> 我是东北农业大学计算机专业大四的本科生,Java基础扎实且掌握Agent开发,有后端实习经历,独立开发智能体协作平台。
+
+```bash
+python scripts/check_security.py --config ~/.job-outreach/config.yaml --mode outreach
+python scripts/send_batch.py --config ~/.job-outreach/config.yaml --dry-run --limit 1
+```
+
+详见历史外投流程与 `assets/self_intro.txt`。
 
 ## 审核标准
 
-发送前对照 [references/review_standards.md](references/review_standards.md)。
+见 [references/review_standards.md](references/review_standards.md)。
 
 ## 测试
 
-完整用例见 [tests/test_cases.md](tests/test_cases.md)。最低验收：
+见 [tests/test_cases.md](tests/test_cases.md)。最低验收：
 
-1. `check_security.py` 对缺简历返回非 0
-2. dry-run 不产生真实发送、不改 sent 状态（可写 preview 日志）
-3. 固定自我介绍字节级一致
-4. 非工作日 `schedule_runner` 跳过
-5. 模拟 429 时触发退避重试
+1. fixture 源可采集并过滤关键词
+2. dry-run 摘要不改 `digest_daily`
+3. `daily_job_limit=10` 截断生效
+4. 重复 `job_id` 第二次不再作为 new
+5. digest 模式不要求简历文件存在
 
-## 需要用户确认 / 可调整项（反馈清单）
+## 需要你确认的点（请反馈）
 
-若以下信息与你的实际环境不符，请告知以便调整 skill：
-
-1. **邮件通道**：当前默认 SMTP；若你固定用某云 API（Resend / SendGrid / 阿里云邮件推送），请给出 API 文档或样例请求。
-2. **公司列表格式**：默认 CSV（`company_id,company_name,website,email,note`）；若已是 JSON/Excel，可增加适配器。
-3. **简历文件**：请将最终 PDF 放入 `assets/resume/` 或提供路径；仓库内不强制提交真实简历。
-4. **发件身份**：默认主题含「邵俊凯」；若姓名/意向岗位变更，改 config 即可。
-5. **法定节假日**：当前仅跳过周六日；若需跳过中国法定假日，可接入节假日 API。
-6. **每 slot 发送量、最小间隔、日上限**：见 config，请按目标邮箱服务商限制调整。
+1. **公司清单**：请提供真实官网招聘页 URL，并尽量标注是否有 RSS/JSON；纯 JS 页面当前 `html_regex` 可能采不到。
+2. **发送时刻**：默认工作日 **09:00** 一封；是否改成 09:30 或早晚两封？
+3. **关键词**：默认 Java/后端/实习/校招/Agent/开发，是否要增删？
+4. **不足 10 条时**：当前用「已知但仍匹配」岗位补齐；是否改为「宁少勿补」只发全新？
+5. **是否还要保留自动外投简历**：默认关闭，需要可开 `enable_outreach_slots`。
 
 ## 依赖
-
-- Python 3.10+
-- 标准库为主；可选 `PyYAML`（配置）、`requests`（HTTP API）
 
 ```bash
 pip install pyyaml requests
 ```
+
+Python 3.10+；采集以标准库为主（urllib / xml / json / re）。

@@ -1,15 +1,55 @@
-# 求职邮件审核标准（Review Standards）
+# 审核标准（Review Standards）
 
-发送前由 Agent / 人工按本标准核对。任一项 **阻断项** 不通过则禁止发送。
+默认审核对象为 **digest（岗位摘要）**；outreach 外投规则保留在后半部分。
 
-## 1. 内容合规（阻断）
+## A. Digest 模式（主流程）
 
-| 检查项 | 标准 | 不通过处理 |
-|--------|------|------------|
-| 自我介绍 | 必须与固定原文完全一致（含标点） | `INTRO_MISMATCH`，恢复 `assets/self_intro.txt` |
-| 虚假承诺 | 不得添加未经验证的薪资、Offer、内部推荐承诺 | 删除后重审 |
-| 敏感信息 | 正文不出现身份证号、银行卡、超额隐私 | 删除后重审 |
-| 简历一致性 | 附件姓名/学校/方向与主题一致 | 更正附件或主题 |
+### A1. 收件与配额（阻断）
+
+| 检查项 | 标准 |
+|--------|------|
+| 收件人 | 必须是用户本人邮箱（默认 `3461630168@qq.com`） |
+| 每日条数 | 约 10 条，`daily_job_limit` ∈ [1, 50] |
+| 重复推送 | 同一 `job_id` 已通知则不应再作为「新岗位」主推 |
+| 同日重复邮件 | 无 `--force` 时每日仅一封摘要 |
+
+### A2. 内容质量（警告 / 阻断）
+
+| 检查项 | 标准 | 级别 |
+|--------|------|------|
+| 链接可点 | 每条含 http(s) URL | 阻断单条 |
+| 关键词相关 | 标题命中配置关键词（或行级 keywords） | 警告（过宽易噪声） |
+| 无虚假「内推保过」等话术 | 摘要仅转述公开岗位信息 | 阻断 |
+| 来源可追溯 | 标明公司名与链接 | 阻断 |
+
+### A3. 采集源（阻断）
+
+- CSV 含 `company_id,company_name,careers_url,source_type`
+- `html_regex` 必须有合法 `item_regex`（`title`/`url` 命名组）
+- 禁止把 SMTP 授权码写入仓库
+
+### A4. 审核输出
+
+```text
+Review: PASS|FAIL
+Mode: digest
+Blockers:
+- ...
+Warnings:
+- ...
+Jobs selected: N
+Recipient: ...
+```
+
+## B. Outreach 模式（可选外投）
+
+### B1. 内容合规（阻断）
+
+| 检查项 | 标准 |
+|--------|------|
+| 自我介绍 | 必须与固定原文完全一致 |
+| 简历 | PDF 存在且不超过大小上限 |
+| 敏感信息 | 正文不出现身份证号等 |
 
 **固定自我介绍原文：**
 
@@ -17,52 +57,6 @@
 我是东北农业大学计算机专业大四的本科生,Java基础扎实且掌握Agent开发,有后端实习经历,独立开发智能体协作平台。
 ```
 
-## 2. 收件人质量（阻断 / 警告）
+### B2. 发送节奏
 
-| 检查项 | 标准 | 级别 |
-|--------|------|------|
-| 邮箱格式 | RFC 基本格式，含 `@` 与合法域名 | 阻断 |
-| 官方渠道 | 优先官网 HR / campus / jobs 邮箱；避免个人随意邮箱 | 警告 |
-| 一次性邮箱 | mailinator 等临时域 | 阻断（`blocked_domains`） |
-| 重复投递 | 同一 `company_id|email` 已 `sent` 默认不重发 | 阻断（除非 `--force`） |
-
-## 3. 发送节奏（阻断）
-
-| 检查项 | 建议默认值 | 说明 |
-|--------|------------|------|
-| 工作日 | 周一至周五 | 周末默认跳过 |
-| 时段 | 09:30 / 14:30（`Asia/Shanghai`） | 与 cron / scheduler 对齐 |
-| 每 slot 批量 | 3–10 封 | `schedule.batch_size` |
-| 封间间隔 | ≥ 8 秒 | `mail.min_interval_sec` |
-| 日上限 | ≤ 40 封（视邮箱服务商而定） | `security.daily_send_limit` |
-
-超过日上限必须停止，次日再发。
-
-## 4. 技术与安全（阻断）
-
-- 简历必须为 PDF，且 ≤ `mail.max_attachment_mb`（默认 5MB）
-- SMTP 授权码 / API Key 不得提交到 Git
-- `check_security.py` 必须 exit 0
-- `AUTH_FAILED` 立即熔断整批
-- 生产环境禁止 `--skip-security`
-
-## 5. 主题与附件命名（建议）
-
-- 主题默认：`求职-Java开发实习生-邵俊凯-东北农业大学`
-- 附件默认：`邵俊凯-Java开发实习生-简历.pdf`
-- 避免过度营销符号（多个 `!!!`、全大写英文标题）
-
-## 6. 审核输出格式
-
-```text
-Review: PASS|FAIL
-Blockers:
-- ...
-Warnings:
-- ...
-Approved recipients: N
-```
-
-## 7. 与失败码映射
-
-审核不通过时，优先使用与 `SKILL.md` 一致的失败码：`INTRO_MISMATCH`、`RESUME_MISSING`、`SECURITY_BLOCKED`、`INVALID_EMAIL`、`SECRET_IN_FILE`（警告）等，便于报告聚合与重试决策。
+工作日、时段、batch_size、日上限与旧版一致；见 `SKILL.md` outreach 节。

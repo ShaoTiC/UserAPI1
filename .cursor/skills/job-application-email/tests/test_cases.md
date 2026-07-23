@@ -1,158 +1,67 @@
-# 求职邮件 Skill 测试用例
+# 测试用例（Digest 优先）
 
-运行环境：Python 3.10+，已安装 `pyyaml`。以下路径以 skill 根目录为基准。
+## TC-D01 fixture 采集与关键词过滤
 
-## TC-01 自我介绍一致性（阻断）
+**步骤**：使用 `assets/companies.example.csv` + fixture，运行 `collect_jobs.py`
 
-**步骤**
-1. 备份 `assets/self_intro.txt`
-2. 故意改动一个标点或字
-3. 运行 `python scripts/check_security.py --config <cfg> --resume <pdf> --companies <csv>`
+**期望**：
+- demo 公司返回匹配 Java/后端/实习/Agent/校招 的岗位
+- 「前端视觉设计」「产品运营」等被过滤
 
-**期望**：exit ≠ 0，输出含 `INTRO_MISMATCH`
+## TC-D02 摘要条数截断
 
-**恢复**：还原固定原文
+**步骤**：`send_digest.py --dry-run --limit 2`
 
----
+**期望**：正文仅 2 条岗位
 
-## TC-02 简历缺失（阻断）
+## TC-D03 Dry-run 不标记已发送
 
-**步骤**：config 中 `paths.resume` 指向不存在文件，运行 `check_security.py`
+**步骤**：dry-run 后检查 `state.json` 的 `digest_daily`
 
-**期望**：`RESUME_MISSING`，exit ≠ 0
+**期望**：不写入当日已发送（或保持原样）
 
----
+## TC-D04 去重
 
-## TC-03 非法邮箱（阻断）
+**步骤**：实发一次（或手动写入 `seen_jobs`）后再次 `collect_jobs`
 
-**步骤**：CSV 中写入 `hr@` 或空邮箱，运行检查
+**期望**：相同 `job_id` 进入 `known_jobs` 而非 `new_jobs`
 
-**期望**：`INVALID_EMAIL`，且无有效收件人时 `NO_VALID_RECIPIENTS`
+## TC-D05 digest 安全检查不要求简历
 
----
+**步骤**：`check_security.py --mode digest`（可不配置 resume）
 
-## TC-04 域名黑名单（阻断）
+**期望**：无 `RESUME_MISSING`；缺 `digest.to_email` 则 FAIL
 
-**步骤**：收件人为 `a@mailinator.com`
+## TC-D06 CSV schema
 
-**期望**：`SECURITY_BLOCKED`
-
----
-
-## TC-05 Dry-run 不实发
-
-**步骤**
-
-```bash
-python scripts/send_batch.py --config <cfg> --dry-run --limit 1 --force-schedule --skip-security
-```
-
-**期望**
-- 输出 `DRY_RUN`
-- `state.json` 中对应记录状态不变为 `sent`
-- 生成报告 `dry_run: True`
-
----
-
-## TC-06 固定正文组装
-
-**步骤**：dry-run 后检查日志/调试打印的 body（可临时在代码中 print，或对 `build_body` 做单元断言）
-
-**期望**：正文以固定自我介绍开头；若配置了 `closing`，则以空行分隔追加
-
----
-
-## TC-07 非工作日跳过
-
-**步骤**：在模拟周六时间或等待周末，运行
-
-```bash
-python scripts/send_batch.py --config <cfg> --slot morning
-```
-
-**期望**：输出 `NOT_WORKDAY`，exit 0，无发送
-
-**对照**：加 `--force-schedule` 后应进入选址逻辑
-
----
-
-## TC-08 幂等不重发
-
-**步骤**
-1. 将某 `company_id|email` 在 state 标为 `sent`
-2. 运行 `send_batch.py --limit 5`（不加 `--force`）
-
-**期望**：该条不被选中
-
----
-
-## TC-09 AUTH_FAILED 熔断
-
-**步骤**：使用错误 SMTP 密码实发（或 mock），批次 limit≥2
-
-**期望**
-- 首封（或失败封）记 `AUTH_FAILED`
-- 后续目标被跳过，日志含 `circuit open`
-
----
-
-## TC-10 RATE_LIMITED 退避与 deferred
-
-**步骤**：mock `send_smtp` 抛出含频率限制的错误，或临时把 `max_retries` 设为 2、`retry_base_delay_sec` 设为 0.1
-
-**期望**
-- 发生多次 attempt
-- 最终状态 `deferred`（而非 `invalid`）
-- 可用 `--retry-failed` 再次拾取
-
----
-
-## TC-11 日上限
-
-**步骤**：将 `security.daily_send_limit` 设为 1，state 中今日计数已为 1
-
-**期望**：`SECURITY_BLOCKED: daily_send_limit reached`，exit 2
-
----
-
-## TC-12 调度窗口
-
-**步骤**
-
-```bash
-python scripts/schedule_runner.py --config <cfg> --once --window-sec 90
-```
-
-在非 09:30/14:30 窗口运行
-
-**期望**：不触发 `send_batch`；在窗口内（可临时改 config 的 morning 为当前时间+1 分钟）应触发一次且同日同 slot 不重复（`fired` 去重）
-
----
-
-## TC-13 报告模板渲染
-
-**步骤**：任意 dry-run 后打开 `report.dir` 下 md
-
-**期望**：`{{date}}` 等占位符均被替换；明细表有行或 `(empty)` 提示
-
----
-
-## TC-14 附件大小超限
-
-**步骤**：将 `max_attachment_mb` 设为 0.0001 后跑 `check_security.py`
-
-**期望**：`ATTACHMENT_TOO_LARGE`
-
----
-
-## TC-15 CSV schema
-
-**步骤**：去掉 `company_id` 列
+**步骤**：去掉 `careers_url` 列
 
 **期望**：`COMPANIES_SCHEMA`
 
----
+## TC-D07 html_regex 缺正则
 
-## 自动化建议
+**步骤**：`source_type=html_regex` 且 `item_regex` 为空
 
-可将 TC-01/02/03/04/05/07/08/11/14/15 做成无网络 CI；TC-09/10 用 mock；TC-06/12/13 做集成测试。真实 SMTP 联通性测试仅在本地手动执行。
+**期望**：`ITEM_REGEX_MISSING`
+
+## TC-D08 同日不重复发送
+
+**步骤**：写入 `digest_daily[今日]` 后再跑 `send_digest.py`
+
+**期望**：`ALREADY_SENT`；加 `--force` 可再发
+
+## TC-D09 非工作日跳过
+
+**步骤**：周末运行 `run_daily.py`（不加 `--force-schedule`）
+
+**期望**：`NOT_WORKDAY`
+
+## TC-D10 邮件发送失败重试
+
+**步骤**：错误授权码实发
+
+**期望**：`AUTH_FAILED`，不写成功标记
+
+## TC-O01～（outreach 兼容）
+
+保留旧用例：自我介绍一致性、简历缺失、dry-run 外投等，运行时加 `--mode outreach`。详见历史 `test_cases` 思路与 `tests/run_smoke.py`。

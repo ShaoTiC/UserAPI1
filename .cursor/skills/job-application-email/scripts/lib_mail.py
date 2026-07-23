@@ -76,6 +76,26 @@ def with_retries(
     return SendResult(False, code, message, attempts=attempts)
 
 
+def build_text_message(
+    *,
+    from_email: str,
+    from_name: str,
+    to_email: str,
+    subject: str,
+    body: str,
+    html_body: str | None = None,
+) -> EmailMessage:
+    """纯文本/可选 HTML 邮件（岗位摘要用，无附件）。"""
+    msg = EmailMessage()
+    msg["From"] = f"{from_name} <{from_email}>" if from_name else from_email
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
+    return msg
+
+
 def build_message(
     *,
     from_email: str,
@@ -169,6 +189,54 @@ def send_http_api(mail_cfg: dict[str, Any], payload: dict[str, Any]) -> None:
         raise TransientSendError("TIMEOUT", str(exc)) from exc
 
 
+def send_text(
+    mail_cfg: dict[str, Any],
+    *,
+    to_email: str,
+    subject: str,
+    body: str,
+    from_name: str,
+    html_body: str | None = None,
+    dry_run: bool = False,
+) -> SendResult:
+    """发送无附件文本/HTML 邮件（每日岗位摘要）。"""
+    max_retries = int(mail_cfg.get("max_retries", 3))
+    base_delay = float(mail_cfg.get("retry_base_delay_sec", 2))
+    from_email = mail_cfg["from_email"]
+
+    if dry_run:
+        return SendResult(True, "DRY_RUN", f"preview digest -> {to_email}", attempts=0)
+
+    provider = (mail_cfg.get("provider") or "smtp").lower()
+
+    def _do() -> None:
+        if provider == "smtp":
+            msg = build_text_message(
+                from_email=from_email,
+                from_name=from_name,
+                to_email=to_email,
+                subject=subject,
+                body=body,
+                html_body=html_body,
+            )
+            send_smtp(mail_cfg, msg)
+        elif provider == "http_api":
+            payload = {
+                "from": from_email,
+                "to": [to_email],
+                "subject": subject,
+                "text": body,
+            }
+            if html_body:
+                payload["html"] = html_body
+            payload.update(mail_cfg.get("api_extra_fields") or {})
+            send_http_api(mail_cfg, payload)
+        else:
+            raise PermanentSendError("CONFIG_INVALID", f"unknown provider {provider}")
+
+    return with_retries(_do, max_retries=max_retries, base_delay=base_delay)
+
+
 def send_one(
     mail_cfg: dict[str, Any],
     *,
@@ -180,6 +248,7 @@ def send_one(
     attach_name: str | None = None,
     dry_run: bool = False,
 ) -> SendResult:
+    """发送带简历附件的求职邮件（可选 outreach 模式，保持兼容）。"""
     max_retries = int(mail_cfg.get("max_retries", 3))
     base_delay = float(mail_cfg.get("retry_base_delay_sec", 2))
     from_email = mail_cfg["from_email"]

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""无网络冒烟测试：校验安全检查与正文组装核心逻辑。"""
+"""无网络冒烟：digest 采集/安全检查 + outreach 兼容要点。"""
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -17,112 +18,185 @@ FIXED = (
 )
 
 
-def write_min_cfg(tmpdir: Path, resume: Path, companies: Path, intro: Path) -> Path:
-    cfg = tmpdir / "config.yaml"
-    cfg.write_text(
-        f"""
+def run(cmd: list[str], env: dict | None = None) -> subprocess.CompletedProcess:
+    base = os.environ.copy()
+    base["JOB_OUTREACH_SMTP_PASSWORD"] = "dummy"
+    if env:
+        base.update(env)
+    return subprocess.run(cmd, capture_output=True, text=True, env=base)
+
+
+def main() -> int:
+    failures: list[str] = []
+    sys.path.insert(0, str(SCRIPTS))
+
+    # --- digest: fixture collect ---
+    from job_sources import collect_from_row, match_keywords
+
+    row = {
+        "company_id": "demo001",
+        "company_name": "示例科技A",
+        "careers_url": "assets/fixtures/demo_jobs_a.json",
+        "source_type": "fixture",
+        "keywords": "Java|后端|实习|Agent",
+    }
+    jobs, err = collect_from_row(row, skill_root=ROOT, global_keywords=[])
+    if err:
+        failures.append(f"fixture collect error: {err}")
+    titles = {j.title for j in jobs}
+    if "Java后端开发实习生" not in titles or "Agent 平台研发实习生" not in titles:
+        failures.append(f"expected matched titles, got {titles}")
+    if any("前端" in t for t in titles):
+        failures.append("frontend job should be filtered")
+
+    if match_keywords("产品运营助理", ["Java", "后端"]):
+        failures.append("keyword match should fail for 运营")
+
+    # --- digest security ---
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        companies = tmp / "companies.csv"
+        companies.write_text(
+            "company_id,company_name,website,careers_url,source_type,item_regex,keywords,email,note\n"
+            f"demo001,A,,{(ROOT / 'assets/fixtures/demo_jobs_a.json').as_posix()},fixture,,,Java,,\n",
+            encoding="utf-8",
+        )
+        cfg = tmp / "config.yaml"
+        cfg.write_text(
+            f"""
+mode: digest
 mail:
   provider: smtp
-  from_email: "sender@test.local"
-  smtp_host: "smtp.test.local"
+  from_email: "3461630168@qq.com"
+  smtp_host: "smtp.qq.com"
   smtp_port: 465
   smtp_ssl: true
-  smtp_username: "sender@test.local"
+  smtp_username: "3461630168@qq.com"
+digest:
+  to_email: "3461630168@qq.com"
+  daily_job_limit: 10
+  keywords: ["Java", "后端"]
+paths:
+  companies: "{companies.as_posix()}"
+  state: "{(tmp / 'state.json').as_posix()}"
+  jobs_cache: "{(tmp / 'cache').as_posix()}"
+schedule:
+  timezone: "Asia/Shanghai"
+  digest_time: "09:00"
+report:
+  dir: "{(tmp / 'reports').as_posix()}"
+""",
+            encoding="utf-8",
+        )
+        p = run(
+            [
+                sys.executable,
+                str(SCRIPTS / "check_security.py"),
+                "--config",
+                str(cfg),
+                "--mode",
+                "digest",
+                "--json",
+            ]
+        )
+        data = json.loads(p.stdout or "{}")
+        if p.returncode != 0 or not data.get("ok"):
+            failures.append(f"digest security expected PASS: {p.stdout} {p.stderr}")
+
+        # collect + dry-run digest
+        p = run(
+            [sys.executable, str(SCRIPTS / "collect_jobs.py"), "--config", str(cfg), "--skill-root", str(ROOT)]
+        )
+        if p.returncode != 0:
+            failures.append(f"collect_jobs failed: {p.stdout}\n{p.stderr}")
+        p = run(
+            [
+                sys.executable,
+                str(SCRIPTS / "send_digest.py"),
+                "--config",
+                str(cfg),
+                "--skill-root",
+                str(ROOT),
+                "--dry-run",
+                "--limit",
+                "10",
+                "--skip-security",
+            ]
+        )
+        if p.returncode != 0 or "DRY_RUN" not in (p.stdout + p.stderr):
+            failures.append(f"send_digest dry-run failed: {p.stdout}\n{p.stderr}")
+
+        # digest should not require resume
+        codes = {f["code"] for f in data.get("findings", [])}
+        if "RESUME_MISSING" in codes:
+            failures.append("digest mode should not require resume")
+
+    # --- outreach intro still enforced when mode=outreach ---
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        resume = tmp / "r.pdf"
+        resume.write_bytes(b"%PDF-1.4 x")
+        companies = tmp / "c.csv"
+        companies.write_text(
+            "company_id,company_name,website,email,note\nc1,Co,https://x,hr@good.example,x\n",
+            encoding="utf-8",
+        )
+        intro = tmp / "i.txt"
+        intro.write_text(FIXED, encoding="utf-8")
+        cfg = tmp / "cfg.yaml"
+        cfg.write_text(
+            f"""
+mode: outreach
+mail:
+  provider: smtp
+  from_email: "a@test.local"
+  smtp_host: "smtp.test.local"
+  smtp_port: 465
+  smtp_username: "a@test.local"
   max_attachment_mb: 5
 paths:
-  companies: "{companies}"
-  resume: "{resume}"
-  self_intro: "{intro}"
-  state: "{tmpdir / 'state.json'}"
+  companies: "{companies.as_posix()}"
+  resume: "{resume.as_posix()}"
+  self_intro: "{intro.as_posix()}"
+  state: "{(tmp / 's.json').as_posix()}"
 schedule:
   batch_size: 3
 security:
   daily_send_limit: 40
-  blocked_domains: ["mailinator.com"]
-report:
-  dir: "{tmpdir / 'reports'}"
 """,
-        encoding="utf-8",
-    )
-    return cfg
-
-
-def run_security(cfg: Path, env_extra: dict | None = None) -> subprocess.CompletedProcess:
-    import os
-
-    env = os.environ.copy()
-    env["JOB_OUTREACH_SMTP_PASSWORD"] = "dummy"
-    if env_extra:
-        env.update(env_extra)
-    return subprocess.run(
-        [sys.executable, str(SCRIPTS / "check_security.py"), "--config", str(cfg), "--json"],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-
-
-def main() -> int:
-    failures = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        resume = tmp / "resume.pdf"
-        resume.write_bytes(b"%PDF-1.4 smoke")
-        companies = tmp / "companies.csv"
-        companies.write_text(
-            "company_id,company_name,website,email,note\n"
-            "c1,Good Co,https://good.example,hr@good.example,ok\n",
             encoding="utf-8",
         )
-        intro = tmp / "self_intro.txt"
-        intro.write_text(FIXED, encoding="utf-8")
-        cfg = write_min_cfg(tmp, resume, companies, intro)
-
-        # Pass case
-        p = run_security(cfg)
+        p = run(
+            [
+                sys.executable,
+                str(SCRIPTS / "check_security.py"),
+                "--config",
+                str(cfg),
+                "--mode",
+                "outreach",
+                "--json",
+            ]
+        )
         data = json.loads(p.stdout or "{}")
         if p.returncode != 0 or not data.get("ok"):
-            failures.append(f"expected PASS, got rc={p.returncode} out={p.stdout} err={p.stderr}")
+            failures.append(f"outreach security expected PASS: {data}")
 
-        # Intro mismatch
-        intro.write_text(FIXED + "额外", encoding="utf-8")
-        p = run_security(cfg)
+        intro.write_text(FIXED + "x", encoding="utf-8")
+        p = run(
+            [
+                sys.executable,
+                str(SCRIPTS / "check_security.py"),
+                "--config",
+                str(cfg),
+                "--mode",
+                "outreach",
+                "--json",
+            ]
+        )
         data = json.loads(p.stdout or "{}")
         codes = {f["code"] for f in data.get("findings", [])}
         if p.returncode == 0 or "INTRO_MISMATCH" not in codes:
-            failures.append(f"INTRO_MISMATCH failed: {data}")
-        intro.write_text(FIXED, encoding="utf-8")
-
-        # Missing resume
-        bad_cfg = write_min_cfg(tmp, tmp / "missing.pdf", companies, intro)
-        p = run_security(bad_cfg)
-        data = json.loads(p.stdout or "{}")
-        codes = {f["code"] for f in data.get("findings", [])}
-        if p.returncode == 0 or "RESUME_MISSING" not in codes:
-            failures.append(f"RESUME_MISSING failed: {data}")
-
-        # Blocked domain
-        companies.write_text(
-            "company_id,company_name,website,email,note\n"
-            "c2,Bad,https://x,a@mailinator.com,x\n",
-            encoding="utf-8",
-        )
-        p = run_security(cfg)
-        data = json.loads(p.stdout or "{}")
-        codes = {f["code"] for f in data.get("findings", [])}
-        if p.returncode == 0 or "SECURITY_BLOCKED" not in codes:
-            failures.append(f"SECURITY_BLOCKED failed: {data}")
-
-    # Import body builder
-    sys.path.insert(0, str(SCRIPTS))
-    from send_batch import build_body
-
-    with tempfile.TemporaryDirectory() as td:
-        intro = Path(td) / "i.txt"
-        intro.write_text(FIXED, encoding="utf-8")
-        body = build_body({"email": {"closing": "谢谢"}}, intro)
-        if not body.startswith(FIXED):
-            failures.append("build_body intro mismatch")
+            failures.append(f"outreach INTRO_MISMATCH failed: {data}")
 
     if failures:
         print("SMOKE FAIL")

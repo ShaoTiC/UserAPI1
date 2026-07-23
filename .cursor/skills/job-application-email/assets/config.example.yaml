@@ -1,5 +1,10 @@
 # 本地配置示例 — 复制到 ~/.job-outreach/config.yaml 后填写
 # 切勿将含真实密码的配置提交到 Git
+#
+# 默认模式：digest（官网采集岗位 → 发到你自己的邮箱）
+# 可选模式：outreach（向外投递简历，沿用旧能力）
+
+mode: digest
 
 mail:
   provider: smtp          # smtp | http_api
@@ -16,33 +21,47 @@ mail:
   max_attachment_mb: 5
   timeout_sec: 30
 
-  # 若使用 HTTP API（示例结构，按服务商调整）：
-  # provider: http_api
-  # api_url: "https://api.example.com/v1/email/send"
-  # api_key_header: "Authorization"   # 可选；默认 Bearer
-  # api_extra_fields: {}
+digest:
+  to_email: "3461630168@qq.com"   # 岗位摘要收件人（你自己）
+  daily_job_limit: 10             # 每天大约发送的岗位条数
+  subject: "【每日招聘速递】{date} · {count} 条新岗位"
+  user_note: "优先关注 Java / 后端 / Agent 相关实习与校招岗位。"
+  keywords:                       # 全局标题关键词（OR）；CSV 行内 keywords 可覆盖
+    - Java
+    - 后端
+    - 实习
+    - 校招
+    - Agent
+    - 开发
+
+crawl:
+  timeout_sec: 25
+  limit_per_company: 20           # 每家公司最多纳入候选数
 
 email:
   from_name: "邵俊凯"
+  # --- 以下仅 outreach 模式使用 ---
   subject: "求职-Java开发实习生-邵俊凯-东北农业大学"
   attachment_filename: "邵俊凯-Java开发实习生-简历.pdf"
-  # 可选礼貌收尾；自我介绍正文不可改
   closing: "附件为个人简历，感谢您抽空查阅。期待有机会与贵司交流。"
 
 paths:
   companies: "~/.job-outreach/companies.csv"
-  resume: "~/.job-outreach/resume.pdf"
-  self_intro: "assets/self_intro.txt"   # 相对 skill 根目录
+  resume: "~/.job-outreach/resume.pdf"          # outreach 模式需要
+  self_intro: "assets/self_intro.txt"           # outreach 模式需要
   state: "~/.job-outreach/state.json"
+  jobs_cache: "~/.job-outreach/cache"
 
 schedule:
   timezone: "Asia/Shanghai"
+  digest_time: "09:00"            # 每日岗位摘要发送时刻（工作日）
+  enable_outreach_slots: false    # true 时额外启用 09:30/14:30 外投
   morning: "09:30"
   afternoon: "14:30"
-  batch_size: 5
+  batch_size: 5                   # outreach 每时段外投封数
 
 security:
-  daily_send_limit: 40
+  daily_send_limit: 40            # outreach 日上限
   blocked_domains:
     - example.com
     - mailinator.com
