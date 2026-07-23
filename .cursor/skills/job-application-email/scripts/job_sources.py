@@ -30,6 +30,7 @@ class JobPosting:
     published: str = ""
     location: str = ""
     snippet: str = ""
+    website: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -185,6 +186,95 @@ def load_fixture(path: Path, company_id: str, company_name: str) -> list[JobPost
     )
 
 
+NAV_DENY = {
+    "首页",
+    "登录",
+    "招聘动态",
+    "了解我们",
+    "社会招聘",
+    "校招须知",
+    "岗位投递",
+    "立即投递",
+    "一键投递",
+    "更多",
+    "返回",
+    "注册",
+}
+
+
+def scrape_playwright(
+    careers_url: str,
+    *,
+    company_id: str,
+    company_name: str,
+    timeout: float = 60.0,
+    wait_ms: int = 6000,
+) -> list[JobPosting]:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("playwright not installed; pip install playwright && playwright install chromium") from exc
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_extra_http_headers({"User-Agent": USER_AGENT})
+        page.goto(careers_url, wait_until="domcontentloaded", timeout=int(timeout * 1000))
+        page.wait_for_timeout(wait_ms)
+        for label in ("职位", "岗位列表", "全部职位", "校园招聘职位", "查看职位"):
+            try:
+                loc = page.get_by_text(label, exact=False).first
+                if loc.is_visible(timeout=1500):
+                    loc.click(timeout=2000)
+                    page.wait_for_timeout(3500)
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        raw = page.evaluate(
+            """() => {
+              const out = [];
+              const seen = new Set();
+              document.querySelectorAll('a[href]').forEach(a => {
+                const href = a.href || '';
+                if (!/^https?:/i.test(href)) return;
+                const full = (a.innerText || '').trim().replace(/\\s+/g, ' ');
+                if (!full) return;
+                const title = full.split('\\n').map(s => s.trim()).filter(Boolean)[0] || full.slice(0, 80);
+                if (title.length < 2 || title.length > 120) return;
+                const key = href + '|' + title;
+                if (seen.has(key)) return;
+                seen.add(key);
+                out.push({ title, url: href, snippet: full.slice(0, 400) });
+              });
+              return out;
+            }"""
+        )
+        browser.close()
+
+    jobs: list[JobPosting] = []
+    for item in raw or []:
+        title = str(item.get("title") or "").strip()
+        url = str(item.get("url") or "").strip()
+        if not title or not url:
+            continue
+        if title in NAV_DENY:
+            continue
+        if any(d == title for d in NAV_DENY):
+            continue
+        jobs.append(
+            JobPosting(
+                job_id=make_job_id(company_id, title, url),
+                company_id=company_id,
+                company_name=company_name,
+                title=title,
+                url=url,
+                source_type="playwright",
+                snippet=str(item.get("snippet") or "")[:400],
+            )
+        )
+    return jobs
+
+
 def match_keywords(title: str, keywords: list[str]) -> bool:
     if not keywords:
         return True
@@ -198,12 +288,14 @@ def collect_from_row(
     skill_root: Path,
     timeout: float = 25.0,
     global_keywords: list[str] | None = None,
+    playwright_wait_ms: int = 6000,
 ) -> tuple[list[JobPosting], str | None]:
     """返回 (jobs, error_message)。"""
     company_id = (row.get("company_id") or "").strip()
     company_name = (row.get("company_name") or "").strip() or company_id
     source_type = (row.get("source_type") or "rss").strip().lower()
     careers_url = (row.get("careers_url") or row.get("website") or "").strip()
+    website = (row.get("website") or careers_url).strip()
     row_kw = [k.strip() for k in (row.get("keywords") or "").split("|") if k.strip()]
     keywords = row_kw or list(global_keywords or [])
 
@@ -246,10 +338,24 @@ def collect_from_row(
                 url_key=(row.get("json_url_key") or "url").strip(),
                 base_url=careers_url,
             )
+        elif source_type == "playwright":
+            if not careers_url:
+                return [], "careers_url missing"
+            jobs = scrape_playwright(
+                careers_url,
+                company_id=company_id,
+                company_name=company_name,
+                timeout=max(timeout, 60.0),
+                wait_ms=playwright_wait_ms,
+            )
         else:
             return [], f"unsupported source_type: {source_type}"
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ET.ParseError, json.JSONDecodeError, re.error) as exc:
+    except Exception as exc:  # noqa: BLE001
         return [], f"{type(exc).__name__}: {exc}"
 
-    filtered = [j for j in jobs if match_keywords(j.title, keywords)]
+    filtered: list[JobPosting] = []
+    for j in jobs:
+        if match_keywords(j.title, keywords):
+            j.website = website
+            filtered.append(j)
     return filtered, None

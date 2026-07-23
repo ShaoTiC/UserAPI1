@@ -32,6 +32,15 @@ def main() -> int:
 
     # --- digest: fixture collect ---
     from job_sources import collect_from_row, match_keywords
+    from send_digest import pick_jobs
+
+    payload = {
+        "new_jobs": [{"job_id": "1", "title": "Java实习"}],
+        "known_jobs": [{"job_id": "2", "title": "Java正式"}],
+    }
+    selected = pick_jobs(payload, 10)
+    if len(selected) != 1 or selected[0]["job_id"] != "1":
+        failures.append(f"pick_jobs should only use new_jobs, got {selected}")
 
     row = {
         "company_id": "demo001",
@@ -74,7 +83,7 @@ mail:
   smtp_username: "3461630168@qq.com"
 digest:
   to_email: "3461630168@qq.com"
-  daily_job_limit: 10
+  max_per_push: 30
   keywords: ["Java", "后端"]
 paths:
   companies: "{companies.as_posix()}"
@@ -82,7 +91,9 @@ paths:
   jobs_cache: "{(tmp / 'cache').as_posix()}"
 schedule:
   timezone: "Asia/Shanghai"
-  digest_time: "09:00"
+  poll_interval_sec: 600
+crawl:
+  baseline_on_first_run: false
 report:
   dir: "{(tmp / 'reports').as_posix()}"
 """,

@@ -171,7 +171,7 @@ def check_companies_digest(companies_path: Path | None, findings: list[Finding])
                 )
             )
             return 0
-        allowed = {"rss", "html_regex", "json", "fixture"}
+        allowed = {"rss", "html_regex", "json", "fixture", "playwright"}
         for i, row in enumerate(reader, start=2):
             cid = (row.get("company_id") or "").strip()
             careers = (row.get("careers_url") or "").strip()
@@ -209,13 +209,19 @@ def check_digest_config(cfg: dict, findings: list[Finding]) -> None:
     to_email = (digest.get("to_email") or "").strip()
     if not EMAIL_RE.match(to_email):
         findings.append(Finding("ERROR", "CONFIG_INVALID", "digest.to_email 非法或缺失"))
-    limit = int(digest.get("daily_job_limit", 10))
-    if limit <= 0 or limit > 50:
-        findings.append(
-            Finding("ERROR", "CONFIG_INVALID", "digest.daily_job_limit 应在 1–50（建议约 10）")
-        )
+    # max_per_push 为可选软上限；不再要求 daily_job_limit
+    max_push = digest.get("max_per_push", digest.get("daily_job_limit", 30))
+    try:
+        max_push_i = int(max_push)
+    except (TypeError, ValueError):
+        findings.append(Finding("ERROR", "CONFIG_INVALID", "digest.max_per_push 必须是整数"))
+        return
+    if max_push_i < 0 or max_push_i > 100:
+        findings.append(Finding("ERROR", "CONFIG_INVALID", "digest.max_per_push 应在 0–100（0=不截断）"))
     else:
-        findings.append(Finding("INFO", "DIGEST_OK", f"摘要将发送到 {to_email}，每日约 {limit} 条"))
+        findings.append(
+            Finding("INFO", "DIGEST_OK", f"有更新即推送到 {to_email}；单次软上限 {max_push_i}")
+        )
 
 
 def check_mail_config(cfg: dict, findings: list[Finding], mode: str = "digest") -> None:

@@ -83,17 +83,20 @@ def main(argv: list[str] | None = None) -> int:
     digest_cfg = cfg.get("digest") or {}
     global_keywords = list(digest_cfg.get("keywords") or [])
     timeout = float((cfg.get("crawl") or {}).get("timeout_sec", 25))
+    wait_ms = int((cfg.get("crawl") or {}).get("playwright_wait_ms", 6000))
     per_company = int(
         args.limit_per_company
         if args.limit_per_company is not None
-        else (cfg.get("crawl") or {}).get("limit_per_company", 20)
+        else (cfg.get("crawl") or {}).get("limit_per_company", 40)
     )
+    seed_baseline = bool((cfg.get("crawl") or {}).get("baseline_on_first_run", True))
 
     with companies_path.open(newline="", encoding="utf-8-sig") as f:
         rows = list(csv.DictReader(f))
 
     state = load_seen(state_path)
     seen = state["seen_jobs"]
+    first_run = seed_baseline and len(seen) == 0
     all_jobs: list[JobPosting] = []
     errors: list[dict[str, str]] = []
 
@@ -106,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
             skill_root=skill_root,
             timeout=timeout,
             global_keywords=global_keywords,
+            playwright_wait_ms=wait_ms,
         )
         if err:
             errors.append({"company_id": cid, "error": err})
@@ -127,6 +131,22 @@ def main(argv: list[str] | None = None) -> int:
             known_jobs.append(job)
         else:
             new_jobs.append(job)
+
+    if first_run and new_jobs:
+        # 首次运行：建立基线，不作为「新岗位」推送，避免把存量岗位一次性刷屏
+        now_iso = datetime.now(tz).isoformat()
+        for job in new_jobs:
+            state["seen_jobs"][job.job_id] = {
+                "title": job.title,
+                "url": job.url,
+                "company_id": job.company_id,
+                "first_seen_at": now_iso,
+                "baseline": True,
+            }
+        save_json(state_path, state)
+        print(f"BASELINE: seeded {len(new_jobs)} jobs without notify")
+        known_jobs = new_jobs + known_jobs
+        new_jobs = []
 
     out_path = Path(args.out).expanduser() if args.out else (cache_dir / f"jobs-{day}.json")
     payload = {

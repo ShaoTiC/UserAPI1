@@ -1,20 +1,17 @@
-# 本地配置示例 — 复制到 ~/.job-outreach/config.yaml 后填写
-# 切勿将含真实密码的配置提交到 Git
-#
-# 默认模式：digest（官网采集岗位 → 发到你自己的邮箱）
-# 可选模式：outreach（向外投递简历，沿用旧能力）
+# 复制到 ~/.job-outreach/config.yaml 后填写授权码相关环境变量
+# 主功能：轮询九家公司官网，发现全新岗位立即推送到用户邮箱
+# 外投简历：已关闭
 
 mode: digest
 
 mail:
-  provider: smtp          # smtp | http_api
+  provider: smtp
   from_email: "3461630168@qq.com"
   smtp_host: "smtp.qq.com"
   smtp_port: 465
   smtp_ssl: true
   smtp_username: "3461630168@qq.com"
-  # 推荐：export JOB_OUTREACH_SMTP_PASSWORD='你的授权码'
-  # smtp_password: ""     # 不推荐明文
+  # export JOB_OUTREACH_SMTP_PASSWORD='你的授权码'
   max_retries: 3
   retry_base_delay_sec: 2
   min_interval_sec: 8
@@ -22,11 +19,12 @@ mail:
   timeout_sec: 30
 
 digest:
-  to_email: "3461630168@qq.com"   # 岗位摘要收件人（你自己）
-  daily_job_limit: 10             # 每天大约发送的岗位条数
-  subject: "【每日招聘速递】{date} · {count} 条新岗位"
-  user_note: "优先关注 Java / 后端 / Agent 相关实习与校招岗位。"
-  keywords:                       # 全局标题关键词（OR）；CSV 行内 keywords 可覆盖
+  to_email: "3461630168@qq.com"
+  # 单次推送软上限（防止一次更新过多撑爆邮件）；不是「必须凑满」
+  max_per_push: 30
+  subject: "【新岗位速递】{datetime} · {count} 条更新"
+  user_note: "以下为官网新出现的匹配岗位，请尽快投递。"
+  keywords:
     - Java
     - 后端
     - 实习
@@ -35,33 +33,27 @@ digest:
     - 开发
 
 crawl:
-  timeout_sec: 25
-  limit_per_company: 20           # 每家公司最多纳入候选数
+  timeout_sec: 60
+  playwright_wait_ms: 6000
+  limit_per_company: 40
+  # 首次运行只建立基线（标记已见），不把存量岗位全部推送
+  baseline_on_first_run: true
 
 email:
   from_name: "邵俊凯"
-  # --- 以下仅 outreach 模式使用 ---
-  subject: "求职-Java开发实习生-邵俊凯-东北农业大学"
-  attachment_filename: "邵俊凯-Java开发实习生-简历.pdf"
-  closing: "附件为个人简历，感谢您抽空查阅。期待有机会与贵司交流。"
 
 paths:
   companies: "~/.job-outreach/companies.csv"
-  resume: "~/.job-outreach/resume.pdf"          # outreach 模式需要
-  self_intro: "assets/self_intro.txt"           # outreach 模式需要
   state: "~/.job-outreach/state.json"
   jobs_cache: "~/.job-outreach/cache"
 
 schedule:
   timezone: "Asia/Shanghai"
-  digest_time: "09:00"            # 每日岗位摘要发送时刻（工作日）
-  enable_outreach_slots: false    # true 时额外启用 09:30/14:30 外投
-  morning: "09:30"
-  afternoon: "14:30"
-  batch_size: 5                   # outreach 每时段外投封数
+  # 无固定发送时刻：持续轮询，有新岗位立刻推送
+  poll_interval_sec: 600
+  enable_outreach_slots: false
 
 security:
-  daily_send_limit: 40            # outreach 日上限
   blocked_domains:
     - example.com
     - mailinator.com

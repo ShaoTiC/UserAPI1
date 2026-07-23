@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将新岗位摘要发送到用户自己的邮箱（默认每日约 10 条）。"""
+"""将「全新」岗位立刻推送到用户邮箱（只发新岗位，宁少勿多）。"""
 
 from __future__ import annotations
 
@@ -60,18 +60,18 @@ def save_state(path: Path, state: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def render_digest(jobs: list[dict[str, Any]], *, day: str, user_note: str) -> tuple[str, str]:
+def render_digest(jobs: list[dict[str, Any]], *, when: str, user_note: str) -> tuple[str, str]:
     lines = [
-        f"【每日招聘速递】{day}",
+        f"【新岗位速递】{when}",
         "",
-        f"今日为你筛选出 {len(jobs)} 条较新/匹配的岗位，请尽快查阅并投递。",
+        f"检测到 {len(jobs)} 条全新匹配岗位（仅推送新发布/未见过的岗位）。",
         "",
     ]
     if user_note:
         lines.extend([user_note, ""])
     html = [
-        f"<h2>【每日招聘速递】{day}</h2>",
-        f"<p>今日为你筛选出 <b>{len(jobs)}</b> 条较新/匹配的岗位，请尽快查阅并投递。</p>",
+        f"<h2>【新岗位速递】{when}</h2>",
+        f"<p>检测到 <b>{len(jobs)}</b> 条全新匹配岗位（只发全新，宁少勿多）。</p>",
     ]
     if user_note:
         html.append(f"<p>{user_note}</p>")
@@ -79,48 +79,58 @@ def render_digest(jobs: list[dict[str, Any]], *, day: str, user_note: str) -> tu
     for i, job in enumerate(jobs, 1):
         title = job.get("title") or "(无标题)"
         company = job.get("company_name") or job.get("company_id") or ""
+        website = job.get("website") or ""
         url = job.get("url") or ""
         loc = job.get("location") or ""
         pub = job.get("published") or ""
         snippet = job.get("snippet") or ""
-        meta = " | ".join(x for x in [company, loc, pub] if x)
         lines.append(f"{i}. {title}")
-        if meta:
-            lines.append(f"   {meta}")
-        lines.append(f"   链接: {url}")
+        lines.append(f"   公司: {company}")
+        if website:
+            lines.append(f"   官网: {website}")
+        if loc or pub:
+            lines.append(f"   信息: {' | '.join(x for x in [loc, pub] if x)}")
+        lines.append(f"   职位链接: {url}")
         if snippet:
-            lines.append(f"   摘要: {snippet}")
+            lines.append(f"   职位内容: {snippet}")
         lines.append("")
         html.append("<li>")
-        html.append(f'<p><b><a href="{url}">{title}</a></b><br/>{meta}</p>')
+        html.append(f"<p><b>{title}</b><br/>公司：{company}</p>")
+        if website:
+            html.append(f'<p>官网：<a href="{website}">{website}</a></p>')
+        if loc or pub:
+            html.append(f"<p>{' | '.join(x for x in [loc, pub] if x)}</p>")
+        html.append(f'<p>职位链接：<a href="{url}">{url}</a></p>')
         if snippet:
-            html.append(f"<p>{snippet}</p>")
+            html.append(f"<p>职位内容：{snippet}</p>")
         html.append("</li>")
     html.append("</ol>")
-    html.append("<p style='color:#666'>本邮件由 job-application-email skill 自动生成。</p>")
-    lines.append("— 由 job-application-email skill 自动生成")
+    html.append("<p style='color:#666'>本邮件由 job-application-email skill 在发现更新后立即发送。</p>")
+    lines.append("— 发现官网更新后立即推送（job-application-email skill）")
     return "\n".join(lines), "\n".join(html)
 
 
-def pick_jobs(payload: dict[str, Any], limit: int) -> list[dict[str, Any]]:
+def pick_jobs(payload: dict[str, Any], limit: int | None) -> list[dict[str, Any]]:
+    """只取全新岗位；不补齐已知岗位。"""
     new_jobs = list(payload.get("new_jobs") or [])
-    known_jobs = list(payload.get("known_jobs") or [])
-    # 优先全新岗位；不足时用已知岗位补齐（仍受日限额）
-    selected = new_jobs[:limit]
-    if len(selected) < limit:
-        selected.extend(known_jobs[: limit - len(selected)])
-    return selected
+    if limit is None or limit <= 0:
+        return new_jobs
+    return new_jobs[:limit]
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="发送每日岗位摘要到用户邮箱")
+    parser = argparse.ArgumentParser(description="发送新岗位速递到用户邮箱")
     parser.add_argument("--config", default=os.environ.get("JOB_OUTREACH_CONFIG"), required=False)
     parser.add_argument("--skill-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--jobs-json", help="collect_jobs 输出的 JSON；默认读当日 cache")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--limit", type=int, default=None, help="覆盖 digest.daily_job_limit")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="单次推送上限（默认 digest.max_per_push；0/不设表示不截断）",
+    )
     parser.add_argument("--skip-security", action="store_true")
-    parser.add_argument("--force", action="store_true", help="即使今日已发送也再发")
     args = parser.parse_args(argv)
 
     if not args.config:
@@ -142,10 +152,16 @@ def main(argv: list[str] | None = None) -> int:
     if not to_email:
         raise SystemExit("CONFIG_INVALID: digest.to_email required")
 
-    limit = int(args.limit or digest_cfg.get("daily_job_limit", 10))
+    # 只发全新；上限仅防止单次邮件过大，不是「必须凑满」
+    if args.limit is not None:
+        limit = args.limit
+    else:
+        limit = int(digest_cfg.get("max_per_push", 30))
+
     tz = ZoneInfo((cfg.get("schedule") or {}).get("timezone", "Asia/Shanghai"))
     now = datetime.now(tz)
     day = now.strftime("%Y-%m-%d")
+    when = now.strftime("%Y-%m-%d %H:%M")
 
     paths = cfg.get("paths") or {}
     state_path = resolve(paths.get("state"), skill_root) or Path.home() / ".job-outreach" / "state.json"
@@ -158,21 +174,17 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"JOBS_CACHE_MISSING: {jobs_json} （请先运行 collect_jobs.py）")
 
     payload = json.loads(jobs_json.read_text(encoding="utf-8"))
-    selected = pick_jobs(payload, limit)
+    selected = pick_jobs(payload, limit if limit > 0 else None)
     if not selected:
-        print("NO_JOBS: 今日无匹配岗位，跳过发送")
+        print("NO_NEW_JOBS: 无全新岗位，跳过发送")
         return 0
 
     state = load_state(state_path)
-    if state.get("digest_daily", {}).get(day) and not args.force and not args.dry_run:
-        print(f"ALREADY_SENT: digest already sent for {day}")
-        return 0
-
-    subject_tpl = digest_cfg.get("subject", "【每日招聘速递】{date} · {count} 条新岗位")
-    subject = subject_tpl.format(date=day, count=len(selected))
+    subject_tpl = digest_cfg.get("subject", "【新岗位速递】{datetime} · {count} 条更新")
+    subject = subject_tpl.format(date=day, datetime=when, count=len(selected))
     from_name = ((cfg.get("email") or {}).get("from_name") or "求职助手").strip()
     user_note = (digest_cfg.get("user_note") or "").strip()
-    text_body, html_body = render_digest(selected, day=day, user_note=user_note)
+    text_body, html_body = render_digest(selected, when=when, user_note=user_note)
 
     result = send_text(
         cfg.get("mail") or {},
@@ -185,53 +197,34 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     report_dir.mkdir(parents=True, exist_ok=True)
-    template_path = skill_root / "assets" / "report_template.md"
-    template = template_path.read_text(encoding="utf-8") if template_path.exists() else "# Report\n"
     rows = []
     for j in selected:
         rows.append(
             f"| {j.get('company_name','')} | {j.get('title','')} | {j.get('url','')} | {result.code} |"
         )
-    report = (
-        template.replace("{{date}}", day)
-        .replace("{{slot}}", "digest")
-        .replace("{{timezone}}", str(tz))
-        .replace("{{dry_run}}", str(args.dry_run))
-        .replace("{{generated_at}}", now.isoformat())
-        .replace("{{success_count}}", "1" if result.ok else "0")
-        .replace("{{fail_count}}", "0" if result.ok else "1")
-        .replace("{{skip_count}}", "0")
-        .replace("{{total_count}}", str(len(selected)))
-        .replace(
-            "{{result_rows}}",
-            "\n".join(rows) if rows else "| (empty) | - | - | - |",
-        )
-    )
-    # 兼容旧模板列数：若模板仍是 outreach 五列表头，额外写一份 digest 报告
+    stamp = now.strftime("%Y%m%d-%H%M%S")
     digest_report = (
-        f"# 每日岗位摘要报告\n\n"
-        f"- 日期：{day}\n"
+        f"# 新岗位速递报告\n\n"
+        f"- 时间：{when}\n"
         f"- 收件人：{to_email}\n"
-        f"- 岗位数：{len(selected)}\n"
+        f"- 新岗位数：{len(selected)}\n"
         f"- 发送结果：{result.code} / {result.message}\n"
         f"- Dry-run：{args.dry_run}\n\n"
         f"| 公司 | 岗位 | 链接 | 结果 |\n|------|------|------|------|\n"
         + ("\n".join(rows) if rows else "| - | - | - | - |")
         + "\n"
     )
-    (report_dir / f"report-{day}-digest.md").write_text(digest_report, encoding="utf-8")
-    (report_dir / f"report-{day}-digest-legacy.md").write_text(report, encoding="utf-8")
+    (report_dir / f"report-{stamp}-digest.md").write_text(digest_report, encoding="utf-8")
 
     if args.dry_run:
-        print(f"DRY_RUN digest -> {to_email} jobs={len(selected)}")
-        print(text_body[:500])
+        print(f"DRY_RUN digest -> {to_email} new_jobs={len(selected)}")
+        print(text_body[:800])
         return 0
 
     if not result.ok:
         print(f"FAIL {result.code}: {result.message}")
         return 1
 
-    # 标记已见 + 今日已发
     for j in selected:
         jid = j.get("job_id")
         if jid:
@@ -239,16 +232,17 @@ def main(argv: list[str] | None = None) -> int:
                 "title": j.get("title"),
                 "url": j.get("url"),
                 "company_id": j.get("company_id"),
+                "website": j.get("website"),
                 "first_seen_at": now.isoformat(),
                 "notified_at": now.isoformat(),
             }
-    state["digest_daily"][day] = {
-        "sent_at": now.isoformat(),
-        "count": len(selected),
-        "to": to_email,
-    }
+    state.setdefault("push_log", []).append(
+        {"at": now.isoformat(), "count": len(selected), "to": to_email}
+    )
+    # 只保留最近 100 条推送日志
+    state["push_log"] = state["push_log"][-100:]
     save_state(state_path, state)
-    print(f"OK digest -> {to_email} jobs={len(selected)} attempts={result.attempts}")
+    print(f"OK digest -> {to_email} new_jobs={len(selected)} attempts={result.attempts}")
     return 0
 
 
