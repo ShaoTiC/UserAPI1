@@ -1,0 +1,25 @@
+{
+  "jobs": [
+    {
+      "title": "Java后端开发实习生",
+      "url": "https://www.example-corp.com/jobs/java-intern-001",
+      "location": "上海",
+      "published": "2026-07-22",
+      "snippet": "参与 Spring Boot 服务开发与接口联调"
+    },
+    {
+      "title": "Agent 平台研发实习生",
+      "url": "https://www.example-corp.com/jobs/agent-intern-002",
+      "location": "上海",
+      "published": "2026-07-21",
+      "snippet": "基于 LLM 工具调用与多 Agent 协作"
+    },
+    {
+      "title": "前端视觉设计（社招）",
+      "url": "https://www.example-corp.com/jobs/design-003",
+      "location": "北京",
+      "published": "2026-07-20",
+      "snippet": "不匹配关键词示例，通常会被过滤"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+# 复制到 ~/.job-outreach/config.yaml
+# 主功能：轮询公司官网 → 新岗位通过 create_note 写入便签/记事本（便于演示）
+# 邮件推送改为可选；外投简历已关闭
+
+mode: digest
+notify_channel: notes   # notes | email
+
+# --- 便签 / 待办（provider: notes）---
+# DroiClaw 完整 Tool 名：notes_create_note
+# 参数：title + content + folder_id
+notes:
+  folder_id: "job-digest"
+  one_note_per_job: false
+  local_dir: "~/.job-outreach/notes"
+  # 手机/桥接：export DROICLAW_MCP_URL='https://你的-mcp-桥接/invoke'
+  # 请求将调用 tool=notes_create_note
+
+mail:
+  provider: smtp
+  from_email: "3461630168@qq.com"
+  smtp_host: "smtp.qq.com"
+  smtp_port: 465
+  smtp_ssl: true
+  smtp_username: "3461630168@qq.com"
+  # 仅 notify_channel: email 时需要：
+  # export JOB_OUTREACH_SMTP_PASSWORD='你的授权码'
+  max_retries: 3
+  retry_base_delay_sec: 2
+  timeout_sec: 30
+
+digest:
+  to_email: "3461630168@qq.com"   # email 渠道时使用
+  max_per_push: 30
+  subject: "【新岗位速递】{datetime} · {count} 条更新"
+  user_note: "以下为官网新出现的匹配岗位，请尽快投递。"
+  keywords:
+    - Java
+    - 后端
+    - 实习
+    - 校招
+    - Agent
+    - 开发
+
+crawl:
+  timeout_sec: 60
+  playwright_wait_ms: 6000
+  limit_per_company: 40
+  baseline_on_first_run: true
+
+email:
+  from_name: "邵俊凯"
+
+paths:
+  companies: "~/.job-outreach/companies.csv"
+  state: "~/.job-outreach/state.json"
+  jobs_cache: "~/.job-outreach/cache"
+
+schedule:
+  timezone: "Asia/Shanghai"
+  poll_interval_sec: 600
+  enable_outreach_slots: false
+
+security:
+  blocked_domains:
+    - example.com
+    - mailinator.com
+
+report:
+  dir: "~/.job-outreach/reports"

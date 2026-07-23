@@ -1,0 +1,10 @@
+company_id,company_name,website,careers_url,source_type,item_regex,keywords,email,note
+tencent,腾讯,https://join.qq.com/,https://join.qq.com/post.html,playwright,,,Java|后端|实习|校招|Agent|开发,,校招官网
+bytedance,字节跳动,https://jobs.bytedance.com/,https://jobs.bytedance.com/campus/position,playwright,,,Java|后端|实习|校招|Agent|开发,,校招职位列表
+alibaba,阿里,https://campus-talent.alibaba.com/campus/index,https://campus-talent.alibaba.com/campus/index,playwright,,,Java|后端|实习|校招|Agent|开发,,阿里校招
+baidu,百度,https://talent.baidu.com/jobs/,https://talent.baidu.com/jobs/,playwright,,,Java|后端|实习|校招|Agent|开发,,百度招聘
+meituan,美团,https://zhaopin.meituan.com/web/campus,https://zhaopin.meituan.com/web/campus,playwright,,,Java|后端|实习|校招|Agent|开发,,美团校招
+oppo,OPPO,https://careers.oppo.com/university/oppo/campus,https://careers.oppo.com/university/oppo/campus,playwright,,,Java|后端|实习|校招|Agent|开发,,OPPO校招
+mihoyo,米哈游,https://jobs.mihoyo.com/,https://jobs.mihoyo.com/,playwright,,,Java|后端|实习|校招|Agent|开发,,米哈游招聘
+xiaohongshu,小红书,https://job.xiaohongshu.com/campus,https://job.xiaohongshu.com/campus/position,playwright,,,Java|后端|实习|校招|Agent|开发,,小红书校招职位
+pdd,拼多多,https://careers.pddglobalhr.com/campus/,https://careers.pddglobalhr.com/campus/,playwright,,,Java|后端|实习|校招|Agent|开发,,拼多多校招

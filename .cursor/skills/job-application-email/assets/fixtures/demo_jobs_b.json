@@ -1,0 +1,25 @@
+{
+  "jobs": [
+    {
+      "title": "校招-Java开发工程师",
+      "url": "https://www.beidou-soft.example/campus/java-2026",
+      "location": "杭州",
+      "published": "2026-07-22",
+      "snippet": "校招 Java，参与高并发业务"
+    },
+    {
+      "title": "后端开发实习生（Redis/MySQL）",
+      "url": "https://www.beidou-soft.example/jobs/backend-intern",
+      "location": "远程",
+      "published": "2026-07-19",
+      "snippet": "缓存与数据库相关业务开发"
+    },
+    {
+      "title": "产品运营助理",
+      "url": "https://www.beidou-soft.example/jobs/ops",
+      "location": "深圳",
+      "published": "2026-07-18",
+      "snippet": "不匹配关键词示例"
+    }
+  ]
+}
