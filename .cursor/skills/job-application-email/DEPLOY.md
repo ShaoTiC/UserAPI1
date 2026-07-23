@@ -14,6 +14,24 @@ https://github.com/ShaoTiC/UserAPI1.git
 cursor/job-application-email-skill-1d7d
 ```
 
+**Directory（本地目录）怎么填：**
+
+IDEA 会要求选择 Directory，填你希望存放仓库的本地路径即可，例如：
+
+```text
+C:\Users\你的用户名\IdeaProjects\UserAPI1
+```
+
+或 macOS：`/Users/你的用户名/IdeaProjects/UserAPI1`  
+
+选一个空目录/新文件夹名；clone 完成后 skill 在：
+
+```text
+<你的 Directory>/.cursor/skills/job-application-email/
+```
+
+异常与特殊情况处理见：[docs/EXCEPTION_HANDLING.md](docs/EXCEPTION_HANDLING.md)
+
 Skill 目录：`.cursor/skills/job-application-email/`
 
 ---

@@ -33,15 +33,13 @@ disable-model-invocation: true
 
 ## 部署
 
-详见 [DEPLOY.md](DEPLOY.md)。
+详见 [DEPLOY.md](DEPLOY.md)。  
+异常与特殊情况（含 IDEA Directory 说明）：[docs/EXCEPTION_HANDLING.md](docs/EXCEPTION_HANDLING.md)。
 
-IDEA「从版本控制新建」URL（可直接粘贴）：
+IDEA「从版本控制新建」：
 
-```text
-https://github.com/ShaoTiC/UserAPI1.git
-```
-
-分支：`cursor/job-application-email-skill-1d7d`
+- **URL**：`https://github.com/ShaoTiC/UserAPI1.git`
+- **Directory**：本地空目录，如 `C:\Users\你\IdeaProjects\UserAPI1`（clone 后 skill 在该目录下 `.cursor/skills/job-application-email/`）
 
 ## 快速开始
 
