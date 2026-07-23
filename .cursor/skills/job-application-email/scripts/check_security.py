@@ -205,11 +205,25 @@ def check_companies_digest(companies_path: Path | None, findings: list[Finding])
 
 
 def check_digest_config(cfg: dict, findings: list[Finding]) -> None:
+    channel = (cfg.get("notify_channel") or "notes").lower()
     digest = cfg.get("digest") or {}
-    to_email = (digest.get("to_email") or "").strip()
-    if not EMAIL_RE.match(to_email):
-        findings.append(Finding("ERROR", "CONFIG_INVALID", "digest.to_email 非法或缺失"))
-    # max_per_push 为可选软上限；不再要求 daily_job_limit
+    if channel == "email":
+        to_email = (digest.get("to_email") or "").strip()
+        if not EMAIL_RE.match(to_email):
+            findings.append(Finding("ERROR", "CONFIG_INVALID", "digest.to_email 非法或缺失"))
+    elif channel == "notes":
+        notes = cfg.get("notes") or {}
+        folder_id = str(notes.get("folder_id") or "").strip()
+        findings.append(
+            Finding(
+                "INFO",
+                "NOTES_OK",
+                f"推送渠道=notes/create_note；folder_id={folder_id or '(empty)'}",
+            )
+        )
+    else:
+        findings.append(Finding("ERROR", "CONFIG_INVALID", f"未知 notify_channel: {channel}"))
+
     max_push = digest.get("max_per_push", digest.get("daily_job_limit", 30))
     try:
         max_push_i = int(max_push)
@@ -219,12 +233,16 @@ def check_digest_config(cfg: dict, findings: list[Finding]) -> None:
     if max_push_i < 0 or max_push_i > 100:
         findings.append(Finding("ERROR", "CONFIG_INVALID", "digest.max_per_push 应在 0–100（0=不截断）"))
     else:
-        findings.append(
-            Finding("INFO", "DIGEST_OK", f"有更新即推送到 {to_email}；单次软上限 {max_push_i}")
-        )
+        findings.append(Finding("INFO", "DIGEST_OK", f"单次软上限 {max_push_i}；渠道={channel}"))
 
 
 def check_mail_config(cfg: dict, findings: list[Finding], mode: str = "digest") -> None:
+    channel = (cfg.get("notify_channel") or "notes").lower()
+    # notes 渠道不强制 SMTP
+    if mode == "digest" and channel == "notes":
+        findings.append(Finding("INFO", "MAIL_SKIPPED", "notify_channel=notes，跳过 SMTP 检查"))
+        return
+
     mail = cfg.get("mail") or {}
     provider = (mail.get("provider") or "smtp").lower()
     sender = (mail.get("from_email") or "").strip()

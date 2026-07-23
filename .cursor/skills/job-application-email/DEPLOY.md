@@ -39,13 +39,13 @@ Skill 目录：`.cursor/skills/job-application-email/`
 ## 当前规则（已按你的确认落地）
 
 1. 公司：腾讯 / 字节 / 阿里 / 百度 / 美团 / OPPO / 米哈游 / 小红书 / 拼多多  
-2. **无固定发送时间**：轮询发现新岗位后立刻推送  
+2. **无固定发送时间**：轮询发现新岗位后立刻处理  
 3. 关键词：Java / 后端 / 实习 / 校招 / Agent / 开发  
-4. **只发全新，宁少勿多**（不凑满 10 条）  
-5. 邮件含官网链接 + 职位链接 + 职位内容  
-6. **关闭外投简历**
+4. **只发全新，宁少勿多**  
+5. **主输出：便签 create_note（title/content/folder_id）**；无 MCP 时写本地记事本 `.txt`  
+6. 邮件改为可选；**关闭外投简历**
 
-说明：官网不会主动 webhook，本 skill 用短间隔轮询近似「立刻」（默认 600 秒，可改更短）。
+说明：官网不会主动 webhook，本 skill 用短间隔轮询近似「立刻」。演示优先走 notes，无需配置 SMTP。
 
 ---
 
@@ -56,40 +56,38 @@ cd UserAPI1/.cursor/skills/job-application-email
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-playwright install chromium
+# 仅采集真实官网时需要：
+# playwright install chromium
 ```
 
-QQ SMTP：开启授权码后
+主路径为 **notes / create_note**，一般**不需要** QQ SMTP。
 
 ```bash
-export JOB_OUTREACH_SMTP_PASSWORD='你的授权码'
-mkdir -p ~/.job-outreach/cache ~/.job-outreach/reports
+mkdir -p ~/.job-outreach/notes ~/.job-outreach/cache ~/.job-outreach/reports
 cp assets/config.example.yaml ~/.job-outreach/config.yaml
 cp assets/companies.example.csv ~/.job-outreach/companies.csv
+# 演示可用：把 paths.companies 改成 skill 内 assets/fixtures/demo_companies.csv
 ```
-
-确认 `digest.to_email: 3461630168@qq.com`。
 
 ---
 
 ## 运行
 
 ```bash
-# 检查
 python scripts/check_security.py --config ~/.job-outreach/config.yaml --mode digest
 
-# 第一轮：建立基线（通常不发邮件）
+# 单轮：采集 → create_note 写记事本
 python scripts/run_daily.py --config ~/.job-outreach/config.yaml
 
-# 之后：有新岗位才会发到邮箱
-python scripts/run_daily.py --config ~/.job-outreach/config.yaml
+# 查看生成的记事本
+ls ~/.job-outreach/notes/job-digest/
 
-# 持续监控（推荐长期运行 / tmux / 系统服务）
+# 手动创建一条笔记
+python scripts/create_note.py --title "测试" --content "hello" --folder-id job-digest
+
+# 持续轮询
 python scripts/schedule_runner.py --config ~/.job-outreach/config.yaml
-# 或更勤快： --poll-sec 300
 ```
-
-Windows 可用任务计划程序每 N 分钟执行一次 `run_daily.py`，效果等同轮询。
 
 ---
 

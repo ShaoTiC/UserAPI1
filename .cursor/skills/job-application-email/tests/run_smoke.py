@@ -74,17 +74,15 @@ def main() -> int:
         cfg.write_text(
             f"""
 mode: digest
-mail:
-  provider: smtp
-  from_email: "3461630168@qq.com"
-  smtp_host: "smtp.qq.com"
-  smtp_port: 465
-  smtp_ssl: true
-  smtp_username: "3461630168@qq.com"
+notify_channel: notes
+notes:
+  folder_id: "job-digest"
+  one_note_per_job: false
+  local_dir: "{(tmp / 'notes').as_posix()}"
 digest:
-  to_email: "3461630168@qq.com"
   max_per_push: 30
   keywords: ["Java", "后端"]
+  user_note: "演示笔记"
 paths:
   companies: "{companies.as_posix()}"
   state: "{(tmp / 'state.json').as_posix()}"
@@ -114,7 +112,7 @@ report:
         if p.returncode != 0 or not data.get("ok"):
             failures.append(f"digest security expected PASS: {p.stdout} {p.stderr}")
 
-        # collect + dry-run digest
+        # collect + save notes
         p = run(
             [sys.executable, str(SCRIPTS / "collect_jobs.py"), "--config", str(cfg), "--skill-root", str(ROOT)]
         )
@@ -123,24 +121,28 @@ report:
         p = run(
             [
                 sys.executable,
-                str(SCRIPTS / "send_digest.py"),
+                str(SCRIPTS / "save_notes.py"),
                 "--config",
                 str(cfg),
                 "--skill-root",
                 str(ROOT),
-                "--dry-run",
                 "--limit",
                 "10",
                 "--skip-security",
             ]
         )
-        if p.returncode != 0 or "DRY_RUN" not in (p.stdout + p.stderr):
-            failures.append(f"send_digest dry-run failed: {p.stdout}\n{p.stderr}")
+        if p.returncode != 0 or "create_note" not in (p.stdout + p.stderr):
+            failures.append(f"save_notes failed: {p.stdout}\n{p.stderr}")
+        note_files = list((tmp / "notes" / "job-digest").glob("*.txt")) if (tmp / "notes" / "job-digest").exists() else []
+        if not note_files:
+            failures.append("expected local notepad .txt under notes/job-digest")
 
         # digest should not require resume
         codes = {f["code"] for f in data.get("findings", [])}
         if "RESUME_MISSING" in codes:
             failures.append("digest mode should not require resume")
+        if "AUTH_MISSING" in codes:
+            failures.append("notes channel should not require SMTP auth")
 
     # --- outreach intro still enforced when mode=outreach ---
     with tempfile.TemporaryDirectory() as td:

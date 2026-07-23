@@ -1,8 +1,19 @@
-# 复制到 ~/.job-outreach/config.yaml 后填写授权码相关环境变量
-# 主功能：轮询九家公司官网，发现全新岗位立即推送到用户邮箱
-# 外投简历：已关闭
+# 复制到 ~/.job-outreach/config.yaml
+# 主功能：轮询公司官网 → 新岗位通过 create_note 写入便签/记事本（便于演示）
+# 邮件推送改为可选；外投简历已关闭
 
 mode: digest
+notify_channel: notes   # notes | email
+
+# --- 便签 / 待办（provider: notes）---
+# 创建笔记 create_note —— 参数 title + content + folder_id
+notes:
+  folder_id: "job-digest"          # 笔记本/文件夹 ID；本地回退时作为子目录名
+  one_note_per_job: false          # true=每个岗位一条笔记；false=本轮汇总一条
+  local_dir: "~/.job-outreach/notes"
+  # 可选：自建桥接 Cursor notes / 其它便签服务
+  # 设置环境变量 JOB_NOTES_WEBHOOK_URL 后，create_note 会优先 POST
+  # {"title","content","folder_id"}
 
 mail:
   provider: smtp
@@ -11,16 +22,14 @@ mail:
   smtp_port: 465
   smtp_ssl: true
   smtp_username: "3461630168@qq.com"
+  # 仅 notify_channel: email 时需要：
   # export JOB_OUTREACH_SMTP_PASSWORD='你的授权码'
   max_retries: 3
   retry_base_delay_sec: 2
-  min_interval_sec: 8
-  max_attachment_mb: 5
   timeout_sec: 30
 
 digest:
-  to_email: "3461630168@qq.com"
-  # 单次推送软上限（防止一次更新过多撑爆邮件）；不是「必须凑满」
+  to_email: "3461630168@qq.com"   # email 渠道时使用
   max_per_push: 30
   subject: "【新岗位速递】{datetime} · {count} 条更新"
   user_note: "以下为官网新出现的匹配岗位，请尽快投递。"
@@ -36,7 +45,6 @@ crawl:
   timeout_sec: 60
   playwright_wait_ms: 6000
   limit_per_company: 40
-  # 首次运行只建立基线（标记已见），不把存量岗位全部推送
   baseline_on_first_run: true
 
 email:
@@ -49,7 +57,6 @@ paths:
 
 schedule:
   timezone: "Asia/Shanghai"
-  # 无固定发送时刻：持续轮询，有新岗位立刻推送
   poll_interval_sec: 600
   enable_outreach_slots: false
 
