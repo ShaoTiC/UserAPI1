@@ -54,7 +54,15 @@ UserAPI1/.cursor/skills/job-application-email/
 | G. 调度/进程 | 休眠、进程被杀、重复启动 | 漏推或重复轮询 |
 | H. 内容质量 | 误报导航链、漏报新岗 | 体验问题 |
 
-设计原则：**单公司失败不拖垮全局**；**只推全新岗位**；发信失败**不标记已通知**，以便下轮重试。
+设计原则：**单公司失败不拖垮全局**；**只推全新岗位**；默认经 **create_note** 写便签/记事本；发信/写笔记失败**不标记已通知**，以便下轮重试。
+
+### 0.1 推送渠道 notes（当前默认）
+
+| 情况 | 处理 |
+|------|------|
+| Cursor 无 notes MCP（本云端环境即如此） | `create_note` 回退写本地 `~/.job-outreach/notes/<folder_id>/*.txt` |
+| 设置了 `JOB_NOTES_WEBHOOK_URL` | 优先 POST `{title,content,folder_id}`；失败再回退本地 |
+| 想改回邮件 | `notify_channel: email` 并配置 SMTP |
 
 ---
 
