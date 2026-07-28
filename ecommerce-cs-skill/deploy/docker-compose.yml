@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-local}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mock-llm:
+    profiles: ["mock"]
+    image: python:3.12-slim
+    working_dir: /opt
+    volumes:
+      - ./mock_internal_llm.py:/opt/mock_internal_llm.py:ro
+    command: ["python", "mock_internal_llm.py", "--port", "18080"]
+    ports:
+      - "18080:18080"
+
+  app-with-mock:
+    profiles: ["mock"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      LLM_BASE_URL: http://mock-llm:18080/v1
+      LLM_API_KEY: local
+      LLM_MODEL: mock-internal-qwen
+    depends_on:
+      - mock-llm

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>电商 AI 客服 · 订单进度对话与质检</title>
+  <style>
+    :root {
+      --bg: #f3f6f4;
+      --ink: #1c2b24;
+      --muted: #5d6f66;
+      --card: #ffffff;
+      --accent: #0f7a4c;
+      --accent-2: #c45c26;
+      --line: #d5e0d9;
+      --ok: #0f7a4c;
+      --bad: #b42318;
+      --shadow: 0 18px 40px rgba(28, 43, 36, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Source Han Sans SC", "Noto Sans SC", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #d9f0e4 0%, transparent 55%),
+        radial-gradient(900px 420px at 100% 0%, #f7e6d8 0%, transparent 50%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+    header h1 {
+      font-family: "Source Serif 4", "Noto Serif SC", Georgia, serif;
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      margin: 0 0 8px;
+      letter-spacing: 0.02em;
+    }
+    header p { margin: 0; color: var(--muted); max-width: 46rem; line-height: 1.6; }
+    .grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+      margin-top: 28px;
+    }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    select, textarea, button {
+      width: 100%;
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    .actions { display: grid; gap: 10px; margin-top: 14px; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.secondary { background: #234537; }
+    button.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    .meta {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #f7faf8;
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .bubble {
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    .user { background: #e8f4ee; }
+    .bot { background: #fff7f0; border: 1px solid #f0d8c4; }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .badge.ok { background: #dff3e8; color: var(--ok); }
+    .badge.bad { background: #fce8e6; color: var(--bad); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .pass { color: var(--ok); font-weight: 700; }
+    .fail { color: var(--bad); font-weight: 700; }
+    .error {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #fce8e6;
+      color: var(--bad);
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>电商 AI 客服 · 订单进度</h1>
+      <p>选择场景后，可调用内部大模型生成客服回复并自动质检；也可对照规则模板回复，或粘贴任意话术做合规检测。</p>
+    </header>
+
+    <div class="grid">
+      <aside class="panel">
+        <label for="scenario">对话场景</label>
+        <select id="scenario"></select>
+        <div class="meta" id="scenarioMeta">加载场景中…</div>
+        <div class="actions">
+          <button id="btnLlm">调用真实 LLM 并质检</button>
+          <button class="secondary" id="btnTemplate">规则模板合规回复 + 质检</button>
+          <button class="ghost" id="btnBad">违规样例 + 质检</button>
+        </div>
+        <label for="manualReply" style="margin-top:16px">或粘贴待质检回复</label>
+        <textarea id="manualReply" placeholder="粘贴客服回复文本…"></textarea>
+        <div class="actions">
+          <button class="ghost" id="btnInspect">仅质检该回复</button>
+        </div>
+        <div class="meta" id="healthMeta"></div>
+      </aside>
+
+      <main class="panel">
+        <div id="result">
+          <div class="meta">选择场景并点击按钮开始模拟。</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const scenarioSelect = document.getElementById('scenario');
+    const scenarioMeta = document.getElementById('scenarioMeta');
+    const result = document.getElementById('result');
+    const healthMeta = document.getElementById('healthMeta');
+    let scenarios = [];
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    }
+
+    async function loadScenarios() {
+      const res = await fetch('/api/scenarios');
+      const data = await res.json();
+      scenarios = data.scenarios || [];
+      scenarioSelect.innerHTML = scenarios.map(s =>
+        `<option value="${escapeHtml(s.id)}">${escapeHtml(s.id)} · ${escapeHtml(s.name)}</option>`
+      ).join('');
+      updateMeta();
+    }
+
+    async function loadHealth() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        healthMeta.textContent = `LLM: ${data.llmModel} @ ${data.llmBaseUrl}`;
+      } catch (e) {
+        healthMeta.textContent = '健康检查失败';
+      }
+    }
+
+    function updateMeta() {
+      const s = scenarios.find(x => x.id === scenarioSelect.value);
+      if (!s) return;
+      scenarioMeta.innerHTML = `
+        <div><strong>${escapeHtml(s.name)}</strong></div>
+        <div>${escapeHtml(s.description)}</div>
+        <div>用户：${escapeHtml(s.userMessage)}</div>
+        <div>订单：${escapeHtml(s.orderId || '无')} / ${escapeHtml(s.status || '-')}</div>
+      `;
+    }
+
+    function setBusy(busy) {
+      for (const id of ['btnLlm', 'btnTemplate', 'btnBad', 'btnInspect']) {
+        document.getElementById(id).disabled = busy;
+      }
+    }
+
+    function renderInspection(data) {
+      const badge = data.passed
+        ? '<span class="badge ok">质检通过</span>'
+        : '<span class="badge bad">质检未通过</span>';
+      const rows = (data.rules || []).map(r => `
+        <tr>
+          <td class="${r.passed ? 'pass' : 'fail'}">${r.passed ? 'PASS' : 'FAIL'}</td>
+          <td>${escapeHtml(r.id)}<br/><span style="color:#5d6f66">${escapeHtml(r.name)}</span></td>
+          <td>${escapeHtml(r.detail)}</td>
+        </tr>
+      `).join('');
+      result.innerHTML = `
+        ${badge}
+        <div class="meta">模式=${escapeHtml(data.mode)} · 模型=${escapeHtml(data.model)} · 场景=${escapeHtml(data.scenarioId)}</div>
+        <div class="bubble user"><strong>用户</strong><br/>${escapeHtml(data.userMessage)}</div>
+        <div class="bubble bot"><strong>客服</strong><br/>${escapeHtml(data.reply)}</div>
+        <table>
+          <thead><tr><th>结果</th><th>规范</th><th>说明</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+      document.getElementById('manualReply').value = data.reply || '';
+    }
+
+    async function postJson(url, payload) {
+      setBusy(true);
+      result.innerHTML = '<div class="meta">请求中…</div>';
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          result.innerHTML = `<div class="error">${escapeHtml(data.error || res.statusText)}</div>`;
+          return;
+        }
+        renderInspection(data);
+      } catch (e) {
+        result.innerHTML = `<div class="error">${escapeHtml(e.message || e)}</div>`;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    scenarioSelect.addEventListener('change', updateMeta);
+    document.getElementById('btnLlm').onclick = () =>
+      postJson('/api/simulate/llm', { scenarioId: scenarioSelect.value });
+    document.getElementById('btnTemplate').onclick = () =>
+      postJson('/api/simulate/template', { scenarioId: scenarioSelect.value, nonCompliant: false });
+    document.getElementById('btnBad').onclick = () =>
+      postJson('/api/simulate/template', { scenarioId: scenarioSelect.value, nonCompliant: true });
+    document.getElementById('btnInspect').onclick = () =>
+      postJson('/api/inspect', {
+        scenarioId: scenarioSelect.value,
+        reply: document.getElementById('manualReply').value
+      });
+
+    loadScenarios();
+    loadHealth();
+  </script>
+</body>
+</html>

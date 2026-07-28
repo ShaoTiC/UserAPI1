@@ -14,6 +14,8 @@ public final class AgentReply {
         COMPLIANT_SIMULATOR,
         /** 故意生成的违规样例，用于检测器回归 */
         NON_COMPLIANT_SAMPLE,
+        /** 真实 LLM（OpenAI 兼容内部大模型）生成 */
+        LLM,
         /** 外部/待测回复 */
         EXTERNAL
     }
